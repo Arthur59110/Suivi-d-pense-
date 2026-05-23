@@ -16,7 +16,7 @@ export default function BottomNav() {
           {isHome && <span className="text-[10px] font-medium text-black">Accueil</span>}
         </Link>
 
-        <Link href="/depenses/new" className="flex items-center justify-center w-[52px] h-[52px] rounded-full bg-black -mt-4 shadow-lg">
+        <Link href="/ajouter" className="flex items-center justify-center w-[52px] h-[52px] rounded-full bg-black -mt-4 shadow-lg">
           <Plus size={24} color="white" strokeWidth={2} />
         </Link>
 
