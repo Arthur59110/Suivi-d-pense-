@@ -105,10 +105,13 @@ export default async function DashboardPage({
           </div>
           <p className="text-[16px] font-bold text-black mt-1 leading-tight">+{formatAmount(totalRevenues)} €</p>
         </Link>
-        <div className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px]">
-          <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Dépenses</p>
+        <Link href="/depenses" className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px]">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Dépenses</p>
+            <ChevronRight size={12} color="#8A8A8A" />
+          </div>
           <p className="text-[16px] font-bold text-black mt-1 leading-tight">-{formatAmount(totalExpenses)} €</p>
-        </div>
+        </Link>
         <Link href="/epargne" className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px]">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Épargne</p>
