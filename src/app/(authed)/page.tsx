@@ -6,6 +6,7 @@ import { parseISO } from 'date-fns'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
+import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { ChevronRight, PiggyBank } from 'lucide-react'
@@ -70,7 +71,10 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-6 px-5 pt-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-[22px] font-bold text-black">Bonjour {firstName}</h1>
+        <div className="flex items-center gap-3">
+          {firstName === 'Arthur' ? <AvatarArthur size={44} /> : <AvatarPaloma size={44} />}
+          <h1 className="text-[22px] font-bold text-black">Bonjour {firstName}</h1>
+        </div>
         <Suspense fallback={null}>
           <MonthSelector />
         </Suspense>
