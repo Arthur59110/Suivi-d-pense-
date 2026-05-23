@@ -11,9 +11,3 @@ CREATE TABLE IF NOT EXISTS expenses (
 );
 
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
-
--- Accès complet (usage personnel, pas d'auth)
-CREATE POLICY "allow_all" ON expenses
-  FOR ALL
-  USING (true)
-  WITH CHECK (true);

@@ -1,6 +1,4 @@
-export const dynamic = 'force-dynamic'
-
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense } from '@/lib/types'
 import ExpenseForm from '@/components/ExpenseForm'
 import { notFound } from 'next/navigation'
@@ -12,6 +10,7 @@ export default async function EditExpensePage({
 }) {
   const { id } = await params
 
+  const supabase = await getSupabaseServer()
   const { data } = await supabase
     .from('expenses')
     .select('*')

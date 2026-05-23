@@ -1,6 +1,4 @@
-export const dynamic = 'force-dynamic'
-
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense } from '@/lib/types'
 import StatsCards from '@/components/StatsCards'
 import ExpenseChart from '@/components/ExpenseChart'
@@ -10,6 +8,7 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 
 export default async function DashboardPage() {
+  const supabase = await getSupabaseServer()
   const { data } = await supabase
     .from('expenses')
     .select('*')

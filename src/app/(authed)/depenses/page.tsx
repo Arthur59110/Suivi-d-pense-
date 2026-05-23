@@ -1,6 +1,4 @@
-export const dynamic = 'force-dynamic'
-
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
 import { format } from 'date-fns'
@@ -9,6 +7,7 @@ import Link from 'next/link'
 import DeleteButton from '@/components/DeleteButton'
 
 export default async function DepensesPage() {
+  const supabase = await getSupabaseServer()
   const { data } = await supabase
     .from('expenses')
     .select('*')
