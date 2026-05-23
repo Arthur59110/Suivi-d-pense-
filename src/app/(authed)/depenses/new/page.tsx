@@ -23,7 +23,13 @@ export default function NewExpensePage() {
     if (!category) { setError('Sélectionnez une catégorie'); return }
 
     startTransition(async () => {
-      await createExpense({ amount: numAmount, description, category, who, date })
+      try {
+        await createExpense({ amount: numAmount, description, category, who, date })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.includes('NEXT_REDIRECT')) throw err
+        setError(msg)
+      }
     })
   }
 
