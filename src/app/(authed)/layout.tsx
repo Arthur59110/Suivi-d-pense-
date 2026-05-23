@@ -10,8 +10,8 @@ export default async function AuthedLayout({ children }: { children: React.React
   if (!user) redirect('/login')
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-[430px] min-h-screen flex flex-col pb-20">
+    <div className="min-h-screen bg-white safe-top">
+      <div className="mx-auto max-w-[430px] min-h-screen flex flex-col pb-[calc(5rem+env(safe-area-inset-bottom))]">
         {children}
       </div>
       <BottomNav />

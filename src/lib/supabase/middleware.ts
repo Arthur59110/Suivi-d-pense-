@@ -29,9 +29,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isLoginPath = request.nextUrl.pathname.startsWith('/login')
+  const { pathname } = request.nextUrl
+  const isLoginPath = pathname.startsWith('/login')
+  const isPublicAsset =
+    pathname === '/manifest.webmanifest' ||
+    pathname.startsWith('/icon') ||
+    pathname.startsWith('/apple-icon')
 
-  if (!user && !isLoginPath) {
+  if (!user && !isLoginPath && !isPublicAsset) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
