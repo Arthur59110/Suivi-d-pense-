@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES, getUserName } from '@/lib/types'
-import { parseISO } from 'date-fns'
+import { parseISO, endOfMonth, format } from 'date-fns'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
@@ -26,7 +26,7 @@ export default async function DashboardPage({
   const month = selectedDate.getMonth() + 1
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const startDate = `${monthStr}-01`
-  const endDate = `${monthStr}-31`
+  const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
 
   const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),

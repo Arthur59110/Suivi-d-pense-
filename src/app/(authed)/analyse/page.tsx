@@ -1,7 +1,9 @@
 export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
-import type { Expense, Revenue, Saving } from '@/lib/types'
+import type { Expense, Revenue, Saving, Budget } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
+import Link from 'next/link'
+import { Settings2 } from 'lucide-react'
 import {
   parseISO,
   format,
@@ -59,15 +61,18 @@ export default async function AnalysePage({
   const startStr = format(fetchStart, 'yyyy-MM-dd')
   const endStr = format(fetchEnd, 'yyyy-MM-dd')
 
-  const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
+  const [expensesRes, revenuesRes, savingsRes, budgetsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startStr).lte('date', endStr),
     supabase.from('revenues').select('*').gte('date', startStr).lte('date', endStr),
     supabase.from('savings').select('*').gte('date', startStr).lte('date', endStr),
+    supabase.from('budgets').select('*'),
   ])
 
   const allExpenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
   const allRevenues: Revenue[] = (revenuesRes.data as Revenue[] | null) ?? []
   const allSavings: Saving[] = (savingsRes.data as Saving[] | null) ?? []
+  const budgets: Budget[] = (budgetsRes.data as Budget[] | null) ?? []
+  const budgetMap = new Map(budgets.map(b => [b.category, Number(b.amount)]))
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-6">
@@ -87,6 +92,7 @@ export default async function AnalysePage({
           expenses={allExpenses}
           revenues={allRevenues}
           savings={allSavings}
+          budgets={budgetMap}
         />
       ) : (
         <YearlyView
@@ -105,11 +111,13 @@ function MonthlyView({
   expenses,
   revenues,
   savings,
+  budgets,
 }: {
   referenceDate: Date
   expenses: Expense[]
   revenues: Revenue[]
   savings: Saving[]
+  budgets: Map<string, number>
 }) {
   const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate))
   const monthRevenues = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate))
@@ -284,6 +292,74 @@ function MonthlyView({
           </div>
         </div>
       )}
+
+      {/* Budgets par catégorie */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">
+            Budgets par catégorie
+          </p>
+          <Link href="/budgets" className="flex items-center gap-1 text-[12px] font-semibold text-black">
+            <Settings2 size={13} color="#000" />
+            Gérer
+          </Link>
+        </div>
+        {budgets.size === 0 ? (
+          <Link
+            href="/budgets"
+            className="block rounded-[16px] bg-[#F7F7F7] p-4 text-center"
+          >
+            <p className="text-[13px] text-[#8A8A8A]">
+              Aucun budget défini.{' '}
+              <span className="text-black font-semibold underline">Définir mes budgets</span>
+            </p>
+          </Link>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {CATEGORIES.filter(cat => budgets.has(cat.value)).map(cat => {
+              const budget = budgets.get(cat.value) ?? 0
+              const spent = monthExpenses
+                .filter(e => e.category === cat.value)
+                .reduce((s, e) => s + e.amount, 0)
+              const pct = budget > 0 ? (spent / budget) * 100 : 0
+              const over = pct > 100
+              return (
+                <div key={cat.value} className="flex items-center gap-3">
+                  <CategoryIcon category={cat.value} size={18} containerSize={36} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-[14px] font-medium text-black">{cat.label}</span>
+                      <span
+                        className="text-[12px] font-semibold"
+                        style={{ color: over ? '#D04030' : '#000' }}
+                      >
+                        {formatAmount(spent)} / {formatAmount(budget)} €
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-[6px] bg-[#E5E5E5] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{
+                            width: `${Math.min(pct, 100)}%`,
+                            background: over ? '#D04030' : pct > 85 ? '#8A8A8A' : '#000',
+                          }}
+                        />
+                      </div>
+                      <span
+                        className="text-[11px] font-semibold w-10 text-right"
+                        style={{ color: over ? '#D04030' : '#8A8A8A' }}
+                      >
+                        {Math.round(pct)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Top catégories */}
       {categoryTotals.length > 0 && (

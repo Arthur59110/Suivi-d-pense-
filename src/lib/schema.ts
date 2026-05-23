@@ -28,3 +28,10 @@ export const savingSchema = z.object({
 })
 
 export type SavingFormValues = z.infer<typeof savingSchema>
+
+export const budgetSchema = z.object({
+  category: z.string().min(1),
+  amount: z.number().positive('Le montant doit être positif'),
+})
+
+export type BudgetFormValues = z.infer<typeof budgetSchema>

@@ -60,3 +60,11 @@ export interface Saving {
   date: string
   created_at: string
 }
+
+export interface Budget {
+  id: string
+  category: string
+  amount: number
+  created_at: string
+  updated_at: string
+}
