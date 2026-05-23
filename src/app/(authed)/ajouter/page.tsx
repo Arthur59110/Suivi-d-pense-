@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { ArrowDownCircle, ArrowUpCircle, ChevronLeft } from 'lucide-react'
+import { ArrowDownCircle, ArrowUpCircle, ChevronLeft, PiggyBank } from 'lucide-react'
 
 export default function AjouterPage() {
   return (
@@ -24,6 +24,7 @@ export default function AjouterPage() {
             <p className="text-[13px] text-[#8A8A8A] mt-0.5">Sortie d&apos;argent</p>
           </div>
         </Link>
+
         <Link
           href="/revenus/new"
           className="rounded-[20px] bg-[#F7F7F7] p-6 flex items-center gap-4"
@@ -34,6 +35,19 @@ export default function AjouterPage() {
           <div>
             <p className="text-[18px] font-bold text-black">Nouveau revenu</p>
             <p className="text-[13px] text-[#8A8A8A] mt-0.5">Entrée d&apos;argent</p>
+          </div>
+        </Link>
+
+        <Link
+          href="/epargne/new"
+          className="rounded-[20px] bg-[#F7F7F7] p-6 flex items-center gap-4"
+        >
+          <div className="w-[56px] h-[56px] rounded-full bg-black flex items-center justify-center">
+            <PiggyBank size={28} color="white" strokeWidth={1.5} />
+          </div>
+          <div>
+            <p className="text-[18px] font-bold text-black">Mettre de côté</p>
+            <p className="text-[13px] text-[#8A8A8A] mt-0.5">Épargne cumulée</p>
           </div>
         </Link>
       </div>

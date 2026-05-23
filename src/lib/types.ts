@@ -51,3 +51,12 @@ export const REVENUE_SOURCES = [
 ] as const
 
 export type RevenueSourceValue = typeof REVENUE_SOURCES[number]['value']
+
+export interface Saving {
+  id: string
+  amount: number
+  description: string
+  who: 'arthur' | 'paloma'
+  date: string
+  created_at: string
+}

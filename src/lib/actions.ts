@@ -2,7 +2,14 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from './supabase/server'
-import { expenseSchema, revenueSchema, type ExpenseFormValues, type RevenueFormValues } from './schema'
+import {
+  expenseSchema,
+  revenueSchema,
+  savingSchema,
+  type ExpenseFormValues,
+  type RevenueFormValues,
+  type SavingFormValues,
+} from './schema'
 
 export async function createExpense(data: ExpenseFormValues) {
   const parsed = expenseSchema.safeParse(data)
@@ -68,4 +75,23 @@ export async function deleteRevenue(id: string) {
   if (error) throw new Error(error.message)
   revalidatePath('/')
   revalidatePath('/revenus')
+}
+
+export async function createSaving(data: SavingFormValues) {
+  const parsed = savingSchema.safeParse(data)
+  if (!parsed.success) throw new Error('Données invalides')
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase.from('savings').insert(parsed.data)
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+  revalidatePath('/epargne')
+  redirect('/epargne')
+}
+
+export async function deleteSaving(id: string) {
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase.from('savings').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/')
+  revalidatePath('/epargne')
 }

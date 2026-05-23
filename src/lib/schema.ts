@@ -19,3 +19,12 @@ export const revenueSchema = z.object({
 })
 
 export type RevenueFormValues = z.infer<typeof revenueSchema>
+
+export const savingSchema = z.object({
+  amount: z.number().positive('Le montant doit être positif'),
+  description: z.string(),
+  who: z.enum(['arthur', 'paloma']),
+  date: z.string().min(1, 'La date est requise'),
+})
+
+export type SavingFormValues = z.infer<typeof savingSchema>
