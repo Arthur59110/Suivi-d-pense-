@@ -42,7 +42,7 @@ Dans Supabase Studio :
 - **Authentication** > **Users** > **Add user** > **Create new user**
 - Créez les 2 comptes avec leur email et un mot de passe :
   - `herengarthur@gmail.com`
-  - `palomakostrzewa13@gmail.com`
+  - `paloma.kostrzewa13@gmail.com`
 - Cochez **Auto Confirm User** pour éviter le mail de confirmation
 
 Pour modifier la liste des emails autorisés, éditez `supabase/migrations/0002_auth_rls.sql` et ré-exécutez-le.

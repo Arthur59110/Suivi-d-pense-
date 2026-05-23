@@ -9,12 +9,12 @@ CREATE POLICY "authorized_users_only" ON expenses
   USING (
     auth.jwt() ->> 'email' IN (
       'herengarthur@gmail.com',
-      'palomakostrzewa13@gmail.com'
+      'paloma.kostrzewa13@gmail.com'
     )
   )
   WITH CHECK (
     auth.jwt() ->> 'email' IN (
       'herengarthur@gmail.com',
-      'palomakostrzewa13@gmail.com'
+      'paloma.kostrzewa13@gmail.com'
     )
   );
