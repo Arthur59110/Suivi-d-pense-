@@ -23,7 +23,7 @@ export default function LoginForm() {
       })
 
       if (signInError) {
-        setError('Email ou mot de passe incorrect.')
+        setError(signInError.message)
         return
       }
 
