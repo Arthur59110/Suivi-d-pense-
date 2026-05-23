@@ -1,27 +1,20 @@
-import { getSupabaseServer } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import Sidebar from '@/components/Sidebar'
-
 export const dynamic = 'force-dynamic'
 
-export default async function AuthedLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const supabase = await getSupabaseServer()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+import { getSupabaseServer } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import BottomNav from '@/components/BottomNav'
 
+export default async function AuthedLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await getSupabaseServer()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   return (
-    <>
-      <Sidebar userEmail={user.email ?? ''} />
-      <main className="pl-56 min-h-full">
-        <div className="p-8">{children}</div>
-      </main>
-    </>
+    <div className="min-h-screen bg-white">
+      <div className="mx-auto max-w-[430px] min-h-screen flex flex-col pb-20">
+        {children}
+      </div>
+      <BottomNav />
+    </div>
   )
 }

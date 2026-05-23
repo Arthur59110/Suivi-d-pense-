@@ -1,105 +1,126 @@
+export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense } from '@/lib/types'
-import StatsCards from '@/components/StatsCards'
-import ExpenseChart from '@/components/ExpenseChart'
-import { CATEGORIES } from '@/lib/types'
-import { format } from 'date-fns'
-import { fr } from 'date-fns/locale'
-import Link from 'next/link'
+import { CATEGORIES, getUserName } from '@/lib/types'
+import { parseISO } from 'date-fns'
+import MonthSelector from '@/components/MonthSelector'
+import CategoryIcon from '@/components/CategoryIcon'
+import ExpenseRow from '@/components/ExpenseRow'
+import { Suspense } from 'react'
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ month?: string }>
+}) {
+  const { month: monthParam } = await searchParams
   const supabase = await getSupabaseServer()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const now = new Date()
+  const selectedDate = monthParam ? parseISO(`${monthParam}-01`) : now
+  const year = selectedDate.getFullYear()
+  const month = selectedDate.getMonth() + 1
+  const monthStr = `${year}-${String(month).padStart(2, '0')}`
+
   const { data } = await supabase
     .from('expenses')
     .select('*')
+    .gte('date', `${monthStr}-01`)
+    .lte('date', `${monthStr}-31`)
     .order('date', { ascending: false })
 
-  const allExpenses: Expense[] = (data as Expense[] | null) ?? []
+  const expenses: Expense[] = (data as Expense[] | null) ?? []
+  const firstName = getUserName(user?.email ?? '')
 
-  const now = new Date()
-  const monthExpenses = allExpenses.filter((e) => {
-    const d = new Date(e.date)
-    return (
-      d.getMonth() === now.getMonth() &&
-      d.getFullYear() === now.getFullYear()
-    )
-  })
+  const total = expenses.reduce((s, e) => s + e.amount, 0)
+  const arthurTotal = expenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
+  const palomaTotal = expenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
 
-  const recent = allExpenses.slice(0, 5)
+  const categoryTotals = CATEGORIES.map(cat => ({
+    ...cat,
+    total: expenses.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
+  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
+
+  const recent = expenses.slice(0, 5)
+
+  function formatAmount(n: number) {
+    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-slate-900">
-        Tableau de bord
-      </h1>
+    <div className="flex flex-col gap-6 px-5 pt-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-[22px] font-bold text-black">Bonjour {firstName}</h1>
+        <Suspense fallback={null}>
+          <MonthSelector />
+        </Suspense>
+      </div>
 
-      <StatsCards expenses={allExpenses} />
+      {/* Total card */}
+      <div className="rounded-[20px] bg-[#F7F7F7] p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Total ce mois</p>
+        <p className="text-[52px] font-bold text-black mt-1 leading-none tracking-[-2px]">
+          {formatAmount(total)} €
+        </p>
+        <p className="text-[13px] text-[#8A8A8A] mt-2">
+          {expenses.length} dépense{expenses.length !== 1 ? 's' : ''}
+        </p>
+      </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <ExpenseChart expenses={monthExpenses} />
-
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-slate-700">
-              Dernières dépenses
-            </h2>
-            <Link
-              href="/depenses"
-              className="text-xs text-blue-600 hover:underline"
-            >
-              Voir tout
-            </Link>
-          </div>
-
-          {recent.length === 0 ? (
-            <div className="py-10 text-center">
-              <p className="text-slate-400 text-sm">
-                Aucune dépense enregistrée.
-              </p>
-              <Link
-                href="/depenses/new"
-                className="text-blue-600 text-sm hover:underline mt-2 inline-block"
-              >
-                Ajouter votre première dépense
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {recent.map((expense) => {
-                const cat = CATEGORIES.find(
-                  (c) => c.value === expense.category
-                )
-                return (
-                  <li
-                    key={expense.id}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span
-                        className="w-2 h-2 rounded-full flex-shrink-0"
-                        style={{ background: cat?.color ?? '#94a3b8' }}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm text-slate-800 truncate">
-                          {expense.description}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          {format(new Date(expense.date), 'd MMM yyyy', {
-                            locale: fr,
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-medium text-slate-900 ml-4 flex-shrink-0">
-                      {expense.amount.toFixed(2)} €
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+      {/* Arthur / Paloma */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-[16px] bg-[#F7F7F7] p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Arthur</p>
+          <p className="text-[24px] font-bold text-black mt-1 leading-tight">{formatAmount(arthurTotal)} €</p>
+        </div>
+        <div className="rounded-[16px] bg-[#F7F7F7] p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Paloma</p>
+          <p className="text-[24px] font-bold text-[#8A8A8A] mt-1 leading-tight">{formatAmount(palomaTotal)} €</p>
         </div>
       </div>
+
+      {/* Par catégorie */}
+      {categoryTotals.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Par catégorie</p>
+          <div className="flex flex-col gap-3">
+            {categoryTotals.map(cat => (
+              <div key={cat.value} className="flex items-center gap-3">
+                <CategoryIcon category={cat.value} size={18} containerSize={36} />
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-[14px] font-medium text-black">{cat.label}</span>
+                    <span className="text-[14px] font-semibold text-black">{formatAmount(cat.total)} €</span>
+                  </div>
+                  <div className="h-[3px] bg-[#E5E5E5] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-black rounded-full"
+                      style={{ width: `${total > 0 ? (cat.total / total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Récent */}
+      {recent.length > 0 && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-1">Récent</p>
+          {recent.map(e => <ExpenseRow key={e.id} expense={e} />)}
+        </div>
+      )}
+
+      {expenses.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-[16px] text-[#8A8A8A]">Aucune dépense ce mois</p>
+          <p className="text-[13px] text-[#8A8A8A] mt-1">Appuyez sur + pour en ajouter une</p>
+        </div>
+      )}
     </div>
   )
 }

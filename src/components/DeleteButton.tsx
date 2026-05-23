@@ -1,7 +1,7 @@
 'use client'
-
 import { useTransition } from 'react'
 import { deleteExpense } from '@/lib/actions'
+import { MoreVertical } from 'lucide-react'
 
 export default function DeleteButton({ id }: { id: string }) {
   const [isPending, startTransition] = useTransition()
@@ -15,9 +15,9 @@ export default function DeleteButton({ id }: { id: string }) {
     <button
       onClick={handleDelete}
       disabled={isPending}
-      className="text-red-500 hover:text-red-700 text-sm disabled:opacity-50 transition-colors"
+      className="p-1 disabled:opacity-30"
     >
-      {isPending ? '...' : 'Supprimer'}
+      <MoreVertical size={16} color="#8A8A8A" />
     </button>
   )
 }
