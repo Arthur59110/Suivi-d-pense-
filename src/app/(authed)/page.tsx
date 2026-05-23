@@ -71,10 +71,10 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-6 px-5 pt-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <Link href="/profil" className="flex items-center gap-3 active:opacity-70">
           {firstName === 'Arthur' ? <AvatarArthur size={44} /> : <AvatarPaloma size={44} />}
           <h1 className="text-[22px] font-bold text-black">Bonjour {firstName}</h1>
-        </div>
+        </Link>
         <Suspense fallback={null}>
           <MonthSelector />
         </Suspense>
