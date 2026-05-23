@@ -35,7 +35,7 @@ export default function RevenueRow({ revenue }: { revenue: Revenue }) {
           {format(new Date(revenue.date), 'd MMM', { locale: fr })}
         </p>
       </div>
-      <DeleteRevenueButton id={revenue.id} />
+      <DeleteRevenueButton id={revenue.id} editHref={`/revenus/${revenue.id}/edit`} />
     </div>
   )
 }

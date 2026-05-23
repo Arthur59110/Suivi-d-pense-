@@ -42,7 +42,7 @@ export default function ExpenseRow({ expense }: Props) {
           {format(new Date(expense.date), 'd MMM', { locale: fr })}
         </p>
       </div>
-      <DeleteButton id={expense.id} />
+      <DeleteButton id={expense.id} editHref={`/depenses/${expense.id}/edit`} />
     </div>
   )
 }
