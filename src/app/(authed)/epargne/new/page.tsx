@@ -1,7 +1,7 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { createSaving } from '@/lib/actions'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ArrowDown } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NewSavingPage() {
@@ -54,10 +54,10 @@ export default function NewSavingPage() {
           <span className="text-[28px] font-bold text-[#8A8A8A]">€</span>
         </div>
 
-        {/* Qui */}
+        {/* Source du revenu */}
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
-            Pour qui
+            Retiré du revenu de
           </p>
           <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
             {(['arthur', 'paloma'] as const).map(w => (
@@ -75,6 +75,13 @@ export default function NewSavingPage() {
                 {w === 'arthur' ? 'Arthur' : 'Paloma'}
               </button>
             ))}
+          </div>
+          <div className="flex items-start gap-2 mt-2 px-1">
+            <ArrowDown size={13} color="#8A8A8A" className="mt-0.5 flex-shrink-0" />
+            <p className="text-[12px] text-[#8A8A8A] leading-snug">
+              Ce montant sera déduit du salaire de {who === 'arthur' ? 'Arthur' : 'Paloma'} ce mois-ci
+              et cumulé dans l&apos;épargne.
+            </p>
           </div>
         </div>
 

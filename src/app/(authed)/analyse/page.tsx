@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
-import type { Expense, Revenue } from '@/lib/types'
+import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
 import {
   parseISO,
@@ -59,13 +59,15 @@ export default async function AnalysePage({
   const startStr = format(fetchStart, 'yyyy-MM-dd')
   const endStr = format(fetchEnd, 'yyyy-MM-dd')
 
-  const [expensesRes, revenuesRes] = await Promise.all([
+  const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startStr).lte('date', endStr),
     supabase.from('revenues').select('*').gte('date', startStr).lte('date', endStr),
+    supabase.from('savings').select('*').gte('date', startStr).lte('date', endStr),
   ])
 
   const allExpenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
   const allRevenues: Revenue[] = (revenuesRes.data as Revenue[] | null) ?? []
+  const allSavings: Saving[] = (savingsRes.data as Saving[] | null) ?? []
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-6">
@@ -80,9 +82,19 @@ export default async function AnalysePage({
       </Suspense>
 
       {view === 'mois' ? (
-        <MonthlyView referenceDate={referenceDate} expenses={allExpenses} revenues={allRevenues} />
+        <MonthlyView
+          referenceDate={referenceDate}
+          expenses={allExpenses}
+          revenues={allRevenues}
+          savings={allSavings}
+        />
       ) : (
-        <YearlyView referenceDate={referenceDate} expenses={allExpenses} revenues={allRevenues} />
+        <YearlyView
+          referenceDate={referenceDate}
+          expenses={allExpenses}
+          revenues={allRevenues}
+          savings={allSavings}
+        />
       )}
     </div>
   )
@@ -92,20 +104,24 @@ function MonthlyView({
   referenceDate,
   expenses,
   revenues,
+  savings,
 }: {
   referenceDate: Date
   expenses: Expense[]
   revenues: Revenue[]
+  savings: Saving[]
 }) {
   const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate))
   const monthRevenues = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate))
+  const monthSavings = savings.filter(s => isSameMonth(parseISO(s.date), referenceDate))
 
   const prevMonth = subMonths(referenceDate, 1)
   const prevExpensesArr = expenses.filter(e => isSameMonth(parseISO(e.date), prevMonth))
 
   const totalExpenses = monthExpenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = monthRevenues.reduce((s, r) => s + r.amount, 0)
-  const balance = totalRevenues - totalExpenses
+  const totalSavings = monthSavings.reduce((s, sv) => s + sv.amount, 0)
+  const balance = totalRevenues - totalExpenses - totalSavings
   const prevTotal = prevExpensesArr.reduce((s, e) => s + e.amount, 0)
   const variation = prevTotal > 0 ? ((totalExpenses - prevTotal) / prevTotal) * 100 : 0
 
@@ -132,7 +148,7 @@ function MonthlyView({
 
   const topExpenses = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 3)
 
-  if (monthExpenses.length === 0 && monthRevenues.length === 0) {
+  if (monthExpenses.length === 0 && monthRevenues.length === 0 && monthSavings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <p className="text-[16px] text-[#8A8A8A]">Aucune donnée pour ce mois</p>
@@ -152,14 +168,18 @@ function MonthlyView({
         >
           {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
         </p>
-        <div className="flex gap-4 mt-4">
+        <div className="flex gap-3 mt-4">
           <div className="flex-1">
-            <p className="text-[11px] text-[#8A8A8A] uppercase tracking-[1px]">Revenus</p>
-            <p className="text-[15px] font-semibold text-black">+{formatAmount(totalRevenues)} €</p>
+            <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Revenus</p>
+            <p className="text-[14px] font-semibold text-black">+{formatAmount(totalRevenues)} €</p>
           </div>
           <div className="flex-1">
-            <p className="text-[11px] text-[#8A8A8A] uppercase tracking-[1px]">Dépenses</p>
-            <p className="text-[15px] font-semibold text-black">-{formatAmount(totalExpenses)} €</p>
+            <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Dépenses</p>
+            <p className="text-[14px] font-semibold text-black">-{formatAmount(totalExpenses)} €</p>
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Épargne</p>
+            <p className="text-[14px] font-semibold text-black">-{formatAmount(totalSavings)} €</p>
           </div>
         </div>
       </div>
@@ -339,17 +359,21 @@ function YearlyView({
   referenceDate,
   expenses,
   revenues,
+  savings,
 }: {
   referenceDate: Date
   expenses: Expense[]
   revenues: Revenue[]
+  savings: Saving[]
 }) {
   const yearExpenses = expenses.filter(e => isSameYear(parseISO(e.date), referenceDate))
   const yearRevenues = revenues.filter(r => isSameYear(parseISO(r.date), referenceDate))
+  const yearSavings = savings.filter(s => isSameYear(parseISO(s.date), referenceDate))
 
   const totalExpenses = yearExpenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = yearRevenues.reduce((s, r) => s + r.amount, 0)
-  const balance = totalRevenues - totalExpenses
+  const totalSavings = yearSavings.reduce((s, sv) => s + sv.amount, 0)
+  const balance = totalRevenues - totalExpenses - totalSavings
 
   const months = eachMonthOfInterval({
     start: startOfYear(referenceDate),
@@ -382,7 +406,7 @@ function YearlyView({
   const arthurPct = totalExpenses > 0 ? (arthurTotal / totalExpenses) * 100 : 0
   const palomaPct = totalExpenses > 0 ? (palomaTotal / totalExpenses) * 100 : 50
 
-  if (yearExpenses.length === 0 && yearRevenues.length === 0) {
+  if (yearExpenses.length === 0 && yearRevenues.length === 0 && yearSavings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <p className="text-[16px] text-[#8A8A8A]">Aucune donnée pour cette année</p>
@@ -401,14 +425,18 @@ function YearlyView({
         >
           {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
         </p>
-        <div className="flex gap-4 mt-4">
+        <div className="flex gap-3 mt-4">
           <div className="flex-1">
-            <p className="text-[11px] text-[#8A8A8A] uppercase tracking-[1px]">Revenus</p>
-            <p className="text-[15px] font-semibold text-black">+{formatAmount(totalRevenues)} €</p>
+            <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Revenus</p>
+            <p className="text-[14px] font-semibold text-black">+{formatAmount(totalRevenues)} €</p>
           </div>
           <div className="flex-1">
-            <p className="text-[11px] text-[#8A8A8A] uppercase tracking-[1px]">Dépenses</p>
-            <p className="text-[15px] font-semibold text-black">-{formatAmount(totalExpenses)} €</p>
+            <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Dépenses</p>
+            <p className="text-[14px] font-semibold text-black">-{formatAmount(totalExpenses)} €</p>
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Épargne</p>
+            <p className="text-[14px] font-semibold text-black">-{formatAmount(totalSavings)} €</p>
           </div>
         </div>
       </div>
