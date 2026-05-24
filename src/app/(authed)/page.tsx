@@ -41,20 +41,19 @@ export default async function DashboardPage({
 
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = revenues.reduce((s, r) => s + r.amount, 0)
-  const totalSavings = savings.reduce((s, sv) => s + sv.amount, 0)
-  const consumed = totalExpenses + totalSavings
-  const balance = totalRevenues - consumed
-  const budgetPercent = totalRevenues > 0 ? Math.min((consumed / totalRevenues) * 100, 100) : 0
-  const isOverBudget = consumed > totalRevenues && totalRevenues > 0
+  const totalSavingsDeposited = savings.filter(sv => sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
+  const totalSavingsWithdrawn = savings.filter(sv => sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
+  const netMonthlySavings = totalSavingsDeposited - totalSavingsWithdrawn
+  const balance = totalRevenues - totalExpenses
+  const budgetPercent = totalRevenues > 0 ? Math.min((totalExpenses / totalRevenues) * 100, 100) : 0
+  const isOverBudget = totalExpenses > totalRevenues && totalRevenues > 0
 
   const arthurExpenses = expenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
   const palomaExpenses = expenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
-  const arthurSavings = savings.filter(s => s.who === 'arthur').reduce((sum, s) => sum + s.amount, 0)
-  const palomaSavings = savings.filter(s => s.who === 'paloma').reduce((sum, s) => sum + s.amount, 0)
   const arthurRevenues = revenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const palomaRevenues = revenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const arthurNet = arthurRevenues - arthurExpenses - arthurSavings
-  const palomaNet = palomaRevenues - palomaExpenses - palomaSavings
+  const arthurNet = arthurRevenues - arthurExpenses
+  const palomaNet = palomaRevenues - palomaExpenses
 
   const categoryTotals = CATEGORIES.map(cat => ({
     ...cat,
@@ -88,11 +87,7 @@ export default async function DashboardPage({
           {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
         </p>
         <p className="text-[13px] text-[#8A8A8A] mt-2">
-          {balance >= 0
-            ? totalSavings > 0
-              ? `Restant après dépenses et ${formatAmount(totalSavings)} € mis de côté`
-              : 'Restant après dépenses'
-            : 'Déficit ce mois'}
+          {balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
         </p>
       </div>
 
@@ -117,7 +112,9 @@ export default async function DashboardPage({
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Épargne</p>
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
-          <p className="text-[16px] font-bold text-black mt-1 leading-tight">-{formatAmount(totalSavings)} €</p>
+          <p className="text-[16px] font-bold text-black mt-1 leading-tight">
+            {netMonthlySavings >= 0 ? '+' : ''}{formatAmount(netMonthlySavings)} €
+          </p>
         </Link>
       </div>
 
@@ -128,19 +125,12 @@ export default async function DashboardPage({
             <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Revenus utilisés</p>
             <p className="text-[13px] font-semibold text-black">{Math.round(budgetPercent)}%</p>
           </div>
-          <div className="h-[6px] bg-[#E5E5E5] rounded-full overflow-hidden flex">
+          <div className="h-[6px] bg-[#E5E5E5] rounded-full overflow-hidden">
             <div
-              className="h-full transition-all"
+              className="h-full transition-all rounded-full"
               style={{
                 width: `${Math.min((totalExpenses / totalRevenues) * 100, 100)}%`,
-                background: isOverBudget ? '#8A8A8A' : '#000000',
-              }}
-            />
-            <div
-              className="h-full transition-all"
-              style={{
-                width: `${Math.min((totalSavings / totalRevenues) * 100, Math.max(0, 100 - (totalExpenses / totalRevenues) * 100))}%`,
-                background: '#8A8A8A',
+                background: isOverBudget ? '#C0392B' : '#000000',
               }}
             />
           </div>
@@ -149,14 +139,10 @@ export default async function DashboardPage({
               <div className="w-2 h-2 rounded-full bg-black" />
               <span>Dépenses</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-[#8A8A8A]" />
-              <span>Épargne</span>
-            </div>
             <span className="ml-auto">
               {isOverBudget
-                ? `Dépassement ${formatAmount(consumed - totalRevenues)} €`
-                : `Reste ${formatAmount(totalRevenues - consumed)} €`}
+                ? `Dépassement ${formatAmount(totalExpenses - totalRevenues)} €`
+                : `Reste ${formatAmount(totalRevenues - totalExpenses)} €`}
             </span>
           </div>
         </div>
@@ -170,7 +156,6 @@ export default async function DashboardPage({
             name="Arthur"
             revenues={arthurRevenues}
             expenses={arthurExpenses}
-            savings={arthurSavings}
             net={arthurNet}
             isActive
           />
@@ -178,14 +163,13 @@ export default async function DashboardPage({
             name="Paloma"
             revenues={palomaRevenues}
             expenses={palomaExpenses}
-            savings={palomaSavings}
             net={palomaNet}
           />
         </div>
       </div>
 
       {/* Épargne du mois highlight */}
-      {totalSavings > 0 && (
+      {netMonthlySavings > 0 && (
         <Link
           href="/epargne"
           className="rounded-[16px] bg-[#F7F7F7] p-4 flex items-center gap-3"
@@ -196,7 +180,7 @@ export default async function DashboardPage({
           <div className="flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Mis de côté ce mois</p>
             <p className="text-[18px] font-bold text-black leading-tight mt-0.5">
-              {formatAmount(totalSavings)} €
+              {formatAmount(netMonthlySavings)} €
             </p>
           </div>
           <ChevronRight size={18} color="#8A8A8A" />
@@ -249,14 +233,12 @@ function PersonCard({
   name,
   revenues,
   expenses,
-  savings,
   net,
   isActive = false,
 }: {
   name: string
   revenues: number
   expenses: number
-  savings: number
   net: number
   isActive?: boolean
 }) {
@@ -288,17 +270,13 @@ function PersonCard({
           <span className="text-[#8A8A8A]">Dépenses</span>
           <span className="text-black font-medium">-{f(expenses)} €</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-[#8A8A8A]">Épargne</span>
-          <span className="text-black font-medium">-{f(savings)} €</span>
-        </div>
       </div>
       <div className="h-px bg-[#E5E5E5] my-1" />
       <div className="flex justify-between items-baseline">
         <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8A8A8A]">Reste</span>
         <span
           className="text-[16px] font-bold"
-          style={{ color: net < 0 ? '#8A8A8A' : '#000' }}
+          style={{ color: net < 0 ? '#C0392B' : '#000' }}
         >
           {net >= 0 ? '+' : ''}{f(net)} €
         </span>
