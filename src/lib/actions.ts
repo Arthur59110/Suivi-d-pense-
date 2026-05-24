@@ -43,8 +43,9 @@ async function notifyArthurIfPaloma(payload: { title: string; body: string; url?
 
 export async function subscribePush(sub: { endpoint: string; p256dh: string; auth: string; who: 'arthur' | 'paloma' }): Promise<{ ok: boolean; error?: string }> {
   try {
-    const db = getSupabaseAdmin()
-    const { error } = await db.from('push_subscriptions').upsert({
+    // utilise la session de l'utilisateur (bypasse le besoin de service_role pour l'upsert)
+    const supabase = await getSupabaseServer()
+    const { error } = await supabase.from('push_subscriptions').upsert({
       endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, who: sub.who,
     }, { onConflict: 'endpoint' })
     if (error) return { ok: false, error: error.message }
@@ -55,8 +56,8 @@ export async function subscribePush(sub: { endpoint: string; p256dh: string; aut
 }
 
 export async function unsubscribePush(endpoint: string) {
-  const db = getSupabaseAdmin()
-  await db.from('push_subscriptions').delete().eq('endpoint', endpoint)
+  const supabase = await getSupabaseServer()
+  await supabase.from('push_subscriptions').delete().eq('endpoint', endpoint)
 }
 
 export async function sendTestPush(who: 'arthur' | 'paloma'): Promise<{ ok: boolean; count?: number; error?: string }> {
