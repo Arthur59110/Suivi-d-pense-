@@ -17,6 +17,7 @@ export const revenueSchema = z.object({
   source: z.string().min(1, 'La source est requise'),
   who: z.enum(['arthur', 'paloma']),
   date: z.string().min(1, 'La date est requise'),
+  budget_month: z.string().nullable().optional(),
 })
 
 export type RevenueFormValues = z.infer<typeof revenueSchema>

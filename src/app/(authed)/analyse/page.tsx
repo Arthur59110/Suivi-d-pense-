@@ -63,7 +63,7 @@ export default async function AnalysePage({
 
   const [expensesRes, revenuesRes, savingsRes, budgetsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startStr).lte('date', endStr),
-    supabase.from('revenues').select('*').gte('date', startStr).lte('date', endStr),
+    supabase.from('revenues').select('*').gte('budget_month', startStr).lte('budget_month', endStr),
     supabase.from('savings').select('*').gte('date', startStr).lte('date', endStr),
     supabase.from('budgets').select('*'),
   ])

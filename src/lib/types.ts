@@ -39,6 +39,7 @@ export interface Revenue {
   source: string
   who: 'arthur' | 'paloma'
   date: string
+  budget_month: string | null
   created_at: string
 }
 

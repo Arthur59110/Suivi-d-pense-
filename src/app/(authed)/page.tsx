@@ -30,7 +30,7 @@ export default async function DashboardPage({
 
   const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
-    supabase.from('revenues').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
+    supabase.from('revenues').select('*').gte('budget_month', startDate).lte('budget_month', endDate).order('date', { ascending: false }),
     supabase.from('savings').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
   ])
 
