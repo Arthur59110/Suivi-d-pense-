@@ -49,8 +49,8 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
   }, [])
 
   async function enable() {
-    setMsg(null)
-    if (!supported) return
+    setMsg('Étape 1 : demande permission...')
+    if (!supported) { setMsg('Non supporté'); return }
     const perm = await Notification.requestPermission()
     setPermission(perm)
     if (perm !== 'granted') {
@@ -58,16 +58,19 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       return
     }
     const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!pub) { setMsg('Clé VAPID publique manquante côté client (vérifie Vercel env vars)') ; return }
+    if (!pub) { setMsg('Clé VAPID publique manquante côté client') ; return }
+    setMsg(`Étape 2 : clé VAPID ok (${pub.slice(0, 10)}...), abonnement push...`)
 
     try {
       const reg = await navigator.serviceWorker.ready
+      setMsg('Étape 3 : SW prêt, subscribe...')
       const key = urlBase64ToUint8Array(pub)
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer,
       })
       const json = sub.toJSON()
+      setMsg(`Étape 4 : sub ok (${sub.endpoint.slice(-20)}), sauvegarde DB...`)
       startTransition(async () => {
         try {
           const res = await subscribePush({
@@ -89,7 +92,7 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       })
     } catch (e) {
       const err = e instanceof Error ? e.message : String(e)
-      setMsg("Abonnement échoué : " + err)
+      setMsg("Abonnement échoué à l'étape SW/subscribe : " + err)
     }
   }
 
