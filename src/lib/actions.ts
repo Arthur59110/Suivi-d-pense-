@@ -205,7 +205,7 @@ export async function reportBalance(
   redirect(`/?month=${nextMonthStr}`)
 }
 
-
+export async function setBudget(category: string, amount: number) {
   const supabase = await getSupabaseServer()
   if (amount <= 0) {
     const { error } = await supabase.from('budgets').delete().eq('category', category)
