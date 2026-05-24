@@ -68,6 +68,38 @@ export async function signOut() {
   redirect('/login')
 }
 
+export async function createRevenueFromSavings(
+  revenueData: RevenueFormValues,
+  savingsWho: 'arthur' | 'paloma',
+  savingsAccountName: string
+) {
+  const parsedRevenue = revenueSchema.safeParse(revenueData)
+  if (!parsedRevenue.success) throw new Error('Données invalides')
+
+  const parsedSaving = savingSchema.safeParse({
+    amount: revenueData.amount,
+    description: `Virement vers revenus`,
+    who: savingsWho,
+    type: 'withdrawal',
+    account_name: savingsAccountName,
+    date: revenueData.date,
+  })
+  if (!parsedSaving.success) throw new Error('Données épargne invalides')
+
+  const supabase = await getSupabaseServer()
+  const [r1, r2] = await Promise.all([
+    supabase.from('revenues').insert(parsedRevenue.data),
+    supabase.from('savings').insert(parsedSaving.data),
+  ])
+  if (r1.error) throw new Error(friendlyError(r1.error.message))
+  if (r2.error) throw new Error(friendlyError(r2.error.message))
+
+  revalidatePath('/')
+  revalidatePath('/revenus')
+  revalidatePath('/epargne')
+  redirect('/')
+}
+
 export async function createRevenue(data: RevenueFormValues) {
   const parsed = revenueSchema.safeParse(data)
   if (!parsed.success) throw new Error('Données invalides')
