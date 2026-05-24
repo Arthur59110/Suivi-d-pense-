@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PullToRefresh from '@/components/PullToRefresh'
 import UpdatePrompt from '@/components/UpdatePrompt'
+import DailyMessage from '@/components/DailyMessage'
 
 export default async function AuthedLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServer()
@@ -13,6 +14,7 @@ export default async function AuthedLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen bg-white safe-top">
+      <DailyMessage />
       <UpdatePrompt />
       <PullToRefresh>
         <div className="mx-auto max-w-[430px] min-h-screen flex flex-col pb-[calc(5rem+env(safe-area-inset-bottom))]">

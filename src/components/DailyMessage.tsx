@@ -26,17 +26,50 @@ const MESSAGES = [
 
 export default function DailyMessage() {
   const [message, setMessage] = useState<string | null>(null)
+  const [visible, setVisible] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
   useEffect(() => {
+    const seen = sessionStorage.getItem('daily-msg-seen')
+    if (seen) return
+
     const idx = Math.floor(Math.random() * MESSAGES.length)
     setMessage(MESSAGES[idx])
+    // slight delay so the animation feels intentional
+    const t = setTimeout(() => setVisible(true), 80)
+    return () => clearTimeout(t)
   }, [])
 
-  if (!message) return null
+  function dismiss() {
+    setLeaving(true)
+    sessionStorage.setItem('daily-msg-seen', '1')
+    setTimeout(() => setVisible(false), 350)
+  }
+
+  if (!message || !visible) return null
 
   return (
-    <p className="text-[13px] text-[#8A8A8A] italic leading-snug animate-fade-in">
-      {message}
-    </p>
+    <div
+      onClick={dismiss}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center px-8 bg-black"
+      style={{
+        opacity: leaving ? 0 : 1,
+        transition: 'opacity 0.35s ease',
+      }}
+    >
+      <p
+        className="text-white text-[22px] font-semibold text-center leading-snug"
+        style={{
+          opacity: leaving ? 0 : 1,
+          transform: leaving ? 'translateY(8px)' : 'translateY(0)',
+          transition: 'opacity 0.3s ease, transform 0.3s ease',
+        }}
+      >
+        {message}
+      </p>
+      <p className="text-[#666] text-[13px] mt-6">
+        Appuyez pour continuer
+      </p>
+    </div>
   )
 }

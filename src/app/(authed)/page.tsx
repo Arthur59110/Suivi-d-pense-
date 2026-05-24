@@ -4,7 +4,6 @@ import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES, getUserName } from '@/lib/types'
 import { parseISO, endOfMonth, format } from 'date-fns'
 import MonthSelector from '@/components/MonthSelector'
-import DailyMessage from '@/components/DailyMessage'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
@@ -74,10 +73,7 @@ export default async function DashboardPage({
       <div className="flex items-center justify-between">
         <Link href="/profil" className="flex items-center gap-3 active:opacity-70">
           {firstName === 'Arthur' ? <AvatarArthur size={44} /> : <AvatarPaloma size={44} />}
-          <div>
-            <h1 className="text-[22px] font-bold text-black leading-tight">Bonjour {firstName}</h1>
-            <DailyMessage />
-          </div>
+          <h1 className="text-[22px] font-bold text-black">Bonjour {firstName}</h1>
         </Link>
         <Suspense fallback={null}>
           <MonthSelector />
