@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic'
+import { cookies } from 'next/headers'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Saving } from '@/lib/types'
 import { format, parseISO, isSameMonth, eachMonthOfInterval } from 'date-fns'
@@ -6,12 +7,16 @@ import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import { Plus, PiggyBank } from 'lucide-react'
 import SavingRow from '@/components/SavingRow'
+import PinGate from '@/components/PinGate'
 
 function formatAmount(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 export default async function EpargnePage() {
+  const store = await cookies()
+  if (store.get('epg')?.value !== '1') return <PinGate />
+
   const supabase = await getSupabaseServer()
   const { data } = await supabase
     .from('savings')

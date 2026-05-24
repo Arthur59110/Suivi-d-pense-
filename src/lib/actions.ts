@@ -1,6 +1,7 @@
 'use server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { getSupabaseServer } from './supabase/server'
 import {
   expenseSchema,
@@ -126,6 +127,12 @@ export async function deleteSaving(id: string) {
   if (error) throw new Error(friendlyError(error.message))
   revalidatePath('/')
   revalidatePath('/epargne')
+}
+
+export async function unlockEpargne(pin: string) {
+  if (pin !== '1306') throw new Error('Code incorrect')
+  const store = await cookies()
+  store.set('epg', '1', { httpOnly: true, sameSite: 'strict', path: '/epargne' })
 }
 
 export async function setBudget(category: string, amount: number) {
