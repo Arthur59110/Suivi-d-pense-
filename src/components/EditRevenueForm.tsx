@@ -6,19 +6,14 @@ import { REVENUE_SOURCES } from '@/lib/types'
 import RevenueIcon from '@/components/RevenueIcon'
 import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
-import { format, startOfMonth, addMonths, parseISO, isSameMonth } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { format, startOfMonth, parseISO } from 'date-fns'
 
-function getBudgetMonth(date: string, useNext: boolean): string {
-  const d = parseISO(date)
-  const base = useNext ? addMonths(startOfMonth(d), 1) : startOfMonth(d)
-  return format(base, 'yyyy-MM-dd')
+function toMonthValue(dateStr: string): string {
+  return format(startOfMonth(parseISO(dateStr)), 'yyyy-MM')
 }
 
-function monthLabel(date: string, useNext: boolean): string {
-  const d = parseISO(date)
-  const base = useNext ? addMonths(startOfMonth(d), 1) : startOfMonth(d)
-  return format(base, 'MMMM yyyy', { locale: fr })
+function toBudgetMonthDate(monthValue: string): string {
+  return `${monthValue}-01`
 }
 
 export default function EditRevenueForm({ revenue }: { revenue: Revenue }) {
@@ -27,24 +22,28 @@ export default function EditRevenueForm({ revenue }: { revenue: Revenue }) {
   const [source, setSource] = useState(revenue.source)
   const [description, setDescription] = useState(revenue.description ?? '')
   const [date, setDate] = useState(revenue.date)
-
-  // Detect if existing revenue was already assigned to next month
-  const initialUseNext = revenue.budget_month
-    ? !isSameMonth(parseISO(revenue.budget_month), parseISO(revenue.date))
-    : false
-  const [useNext, setUseNext] = useState(initialUseNext)
-
+  const [budgetMonthValue, setBudgetMonthValue] = useState(
+    revenue.budget_month ? toMonthValue(revenue.budget_month) : toMonthValue(revenue.date)
+  )
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+
+  function handleDateChange(val: string) {
+    setDate(val)
+    // Only reset budget month if user hasn't manually changed it
+    setBudgetMonthValue(toMonthValue(val))
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const numAmount = parseFloat(amount.replace(',', '.'))
     if (!numAmount || numAmount <= 0) { setError('Montant invalide'); return }
-    const budget_month = getBudgetMonth(date, useNext)
     startTransition(async () => {
       try {
-        await updateRevenue(revenue.id, { amount: numAmount, description, source, who, date, budget_month })
+        await updateRevenue(revenue.id, {
+          amount: numAmount, description, source, who, date,
+          budget_month: toBudgetMonthDate(budgetMonthValue),
+        })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes('NEXT_REDIRECT')) throw err
@@ -99,7 +98,7 @@ export default function EditRevenueForm({ revenue }: { revenue: Revenue }) {
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
             Date de réception
           </p>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+          <input type="date" value={date} onChange={e => handleDateChange(e.target.value)}
             className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
         </div>
 
@@ -107,18 +106,12 @@ export default function EditRevenueForm({ revenue }: { revenue: Revenue }) {
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
             Compte pour le mois de
           </p>
-          <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
-            <button type="button" onClick={() => setUseNext(false)}
-              className="flex-1 py-3 rounded-[10px] text-[14px] font-semibold transition-all capitalize"
-              style={{ background: !useNext ? '#ffffff' : 'transparent', color: !useNext ? '#000000' : '#8A8A8A', boxShadow: !useNext ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
-              {monthLabel(date, false)}
-            </button>
-            <button type="button" onClick={() => setUseNext(true)}
-              className="flex-1 py-3 rounded-[10px] text-[14px] font-semibold transition-all capitalize"
-              style={{ background: useNext ? '#ffffff' : 'transparent', color: useNext ? '#000000' : '#8A8A8A', boxShadow: useNext ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
-              {monthLabel(date, true)}
-            </button>
-          </div>
+          <input
+            type="month"
+            value={budgetMonthValue}
+            onChange={e => setBudgetMonthValue(e.target.value)}
+            className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none"
+          />
         </div>
 
         {error && <p className="text-[13px] text-red-500">{error}</p>}
