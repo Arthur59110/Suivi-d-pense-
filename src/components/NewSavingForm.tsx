@@ -1,14 +1,19 @@
 'use client'
-import { useState, useTransition } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useTransition, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createSaving } from '@/lib/actions'
 import { ChevronLeft, ArrowDown, ArrowUp } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NewSavingForm() {
+  const router = useRouter()
   const params = useSearchParams()
   const initialType = params.get('type') === 'withdrawal' ? 'withdrawal' : 'deposit'
   const initialWho = params.get('who') === 'paloma' ? 'paloma' : 'arthur'
+
+  useEffect(() => {
+    if (sessionStorage.getItem('epg') !== '1') router.replace('/epargne')
+  }, [router])
 
   const [type, setType] = useState<'deposit' | 'withdrawal'>(initialType)
   const [amount, setAmount] = useState('')

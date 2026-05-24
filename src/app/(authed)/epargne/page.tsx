@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic'
-import { cookies } from 'next/headers'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Saving } from '@/lib/types'
 import { format, parseISO, isSameMonth, eachMonthOfInterval } from 'date-fns'
@@ -20,9 +19,6 @@ function balance(savings: Saving[], who: 'arthur' | 'paloma') {
 }
 
 export default async function EpargnePage() {
-  const store = await cookies()
-  if (store.get('epg')?.value !== '1') return <PinGate />
-
   const supabase = await getSupabaseServer()
   const { data } = await supabase
     .from('savings')
@@ -56,6 +52,7 @@ export default async function EpargnePage() {
   const maxMonthly = Math.max(...monthlyTotals.map(m => m.deposits), 1)
 
   return (
+    <PinGate>
     <div className="flex flex-col pt-4 px-5 gap-6 pb-4">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -233,5 +230,6 @@ export default async function EpargnePage() {
         </>
       )}
     </div>
+    </PinGate>
   )
 }
