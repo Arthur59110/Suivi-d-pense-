@@ -4,20 +4,23 @@ import NewSavingForm from '@/components/NewSavingForm'
 import { Suspense } from 'react'
 
 export default async function NewSavingPage() {
-  const supabase = await getSupabaseServer()
-  const { data } = await supabase
-    .from('savings')
-    .select('who, account_name')
-    .order('account_name')
+  let existingAccounts: { who: 'arthur' | 'paloma'; account_name: string }[] = []
 
-  const raw = (data ?? []) as { who: 'arthur' | 'paloma'; account_name: string }[]
-  const seen = new Set<string>()
-  const existingAccounts = raw.filter(a => {
-    const key = `${a.who}::${a.account_name}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  try {
+    const supabase = await getSupabaseServer()
+    const { data } = await supabase.from('savings').select('who, account_name').order('account_name')
+    if (data) {
+      const seen = new Set<string>()
+      existingAccounts = (data as typeof existingAccounts).filter(a => {
+        const key = `${a.who}::${a.account_name}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    }
+  } catch {
+    // colonne manquante → formulaire sans autocomplétion
+  }
 
   return <Suspense><NewSavingForm existingAccounts={existingAccounts} /></Suspense>
 }
