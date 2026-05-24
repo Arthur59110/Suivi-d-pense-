@@ -132,7 +132,7 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
 
         {/* Champs spécifiques DÉPENSE */}
         {mode === 'expense' && (
-          <>
+          <div className="flex flex-col gap-5 animate-slide-up">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Type</p>
               <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
@@ -161,9 +161,8 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
                 ))}
               </div>
             </div>
-          </>
+          </div>
         )}
-
 
         {/* Description */}
         <input type="text" value={description} onChange={e => setDescription(e.target.value)}
@@ -179,7 +178,7 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
 
         {/* Type de revenu */}
         {mode === 'revenue' && (
-          <div>
+          <div className="animate-slide-up">
             <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Type</p>
             <div className="grid grid-cols-4 gap-2">
               {REVENUE_SOURCES.map(src => (
@@ -199,7 +198,7 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
 
         {/* Mois budget (revenu uniquement) */}
         {mode === 'revenue' && (
-          <>
+          <div className="flex flex-col gap-5 animate-slide-up">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
                 Compte pour le mois de
@@ -292,14 +291,15 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
                 </div>
               )}
             </div>
-          </>
+          </div>
         )}
 
-        {error && <p className="text-[13px] text-red-500">{error}</p>}
+        {error && <p className="text-[13px] text-red-500 animate-fade-in">{error}</p>}
 
         <button type="submit" disabled={isPending}
+          className="mt-auto h-[56px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40 transition-transform active:scale-[0.97] duration-100"
           className="mt-auto h-[56px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40">
-          {isPending ? 'Enregistrement...' : 'Enregistrer'}
+          {isPending ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
     </div>

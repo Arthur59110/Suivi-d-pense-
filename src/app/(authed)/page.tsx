@@ -7,6 +7,8 @@ import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
+import CountUp from '@/components/CountUp'
+import AnimatedBar from '@/components/AnimatedBar'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { ChevronRight, PiggyBank } from 'lucide-react'
@@ -36,7 +38,7 @@ export default async function DashboardPage({
 
   const expenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
   const revenues: Revenue[] = (revenuesRes.data as Revenue[] | null) ?? []
-  const savings: Saving[] = (savingsRes.data as Saving[] | null) ?? []
+  const savings: Saving[]   = (savingsRes.data as Saving[]   | null) ?? []
   const firstName = getUserName(user?.email ?? '')
 
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
@@ -62,15 +64,16 @@ export default async function DashboardPage({
 
   const recent = expenses.slice(0, 5)
 
-  function formatAmount(n: number) {
+  function f(n: number) {
     return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
   return (
     <div className="flex flex-col gap-6 px-5 pt-6">
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <Link href="/profil" className="flex items-center gap-3 active:opacity-70">
+      <div className="flex items-center justify-between animate-slide-up" style={{ animationDelay: '0ms' }}>
+        <Link href="/profil" className="flex items-center gap-3 transition-transform active:scale-95 duration-100">
           {firstName === 'Arthur' ? <AvatarArthur size={44} /> : <AvatarPaloma size={44} />}
           <h1 className="text-[22px] font-bold text-black">Bonjour {firstName}</h1>
         </Link>
@@ -80,11 +83,12 @@ export default async function DashboardPage({
       </div>
 
       {/* Solde card */}
-      <div className="rounded-[20px] bg-[#F7F7F7] p-6">
+      <div className="rounded-[20px] bg-[#F7F7F7] p-6 animate-slide-up transition-transform active:scale-[0.98] duration-150"
+        style={{ animationDelay: '70ms' }}>
         <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Solde du mois</p>
-        <p className="text-[52px] font-bold mt-1 leading-none tracking-[-2px]"
-          style={{ color: balance < 0 ? '#8A8A8A' : '#000000' }}>
-          {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
+        <p className="text-[52px] font-bold mt-1 leading-none tracking-[-2px] animate-count-pop"
+          style={{ color: balance < 0 ? '#8A8A8A' : '#000000', animationDelay: '200ms' }}>
+          {balance >= 0 ? '+' : '-'}<CountUp value={balance} /> €
         </p>
         <p className="text-[13px] text-[#8A8A8A] mt-2">
           {balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
@@ -92,48 +96,48 @@ export default async function DashboardPage({
       </div>
 
       {/* Revenus / Dépenses / Épargne */}
-      <div className="grid grid-cols-3 gap-2">
-        <Link href="/revenus" className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px]">
+      <div className="grid grid-cols-3 gap-2 animate-slide-up" style={{ animationDelay: '140ms' }}>
+        <Link href="/revenus"
+          className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px] transition-transform active:scale-[0.96] duration-100">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Revenus</p>
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
-          <p className="text-[16px] font-bold text-black mt-1 leading-tight">+{formatAmount(totalRevenues)} €</p>
+          <p className="text-[16px] font-bold text-black mt-1 leading-tight">+{f(totalRevenues)} €</p>
         </Link>
-        <Link href="/depenses" className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px]">
+        <Link href="/depenses"
+          className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px] transition-transform active:scale-[0.96] duration-100">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Dépenses</p>
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
-          <p className="text-[16px] font-bold text-black mt-1 leading-tight">-{formatAmount(totalExpenses)} €</p>
+          <p className="text-[16px] font-bold text-black mt-1 leading-tight">-{f(totalExpenses)} €</p>
         </Link>
-        <Link href="/epargne" className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px]">
+        <Link href="/epargne"
+          className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px] transition-transform active:scale-[0.96] duration-100">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Épargne</p>
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
           <p className="text-[16px] font-bold text-black mt-1 leading-tight">
-            {netMonthlySavings >= 0 ? '+' : ''}{formatAmount(netMonthlySavings)} €
+            {netMonthlySavings >= 0 ? '+' : ''}{f(netMonthlySavings)} €
           </p>
         </Link>
       </div>
 
       {/* Budget progress */}
       {totalRevenues > 0 && (
-        <div>
+        <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
           <div className="flex items-center justify-between mb-2">
             <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Revenus utilisés</p>
             <p className="text-[13px] font-semibold text-black">{Math.round(budgetPercent)}%</p>
           </div>
-          <div className="h-[6px] bg-[#E5E5E5] rounded-full overflow-hidden">
-            <div
-              className="h-full transition-all rounded-full"
-              style={{
-                width: `${Math.min((totalExpenses / totalRevenues) * 100, 100)}%`,
-                background: isOverBudget ? '#C0392B' : '#000000',
-              }}
-            />
-          </div>
+          <AnimatedBar
+            percent={budgetPercent}
+            color={isOverBudget ? '#C0392B' : '#000000'}
+            height={6}
+            delay={250}
+          />
           <div className="flex items-center gap-4 mt-2 text-[11px] text-[#8A8A8A]">
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full bg-black" />
@@ -141,47 +145,33 @@ export default async function DashboardPage({
             </div>
             <span className="ml-auto">
               {isOverBudget
-                ? `Dépassement ${formatAmount(totalExpenses - totalRevenues)} €`
-                : `Reste ${formatAmount(totalRevenues - totalExpenses)} €`}
+                ? `Dépassement ${f(totalExpenses - totalRevenues)} €`
+                : `Reste ${f(totalRevenues - totalExpenses)} €`}
             </span>
           </div>
         </div>
       )}
 
       {/* Par personne */}
-      <div>
+      <div className="animate-slide-up" style={{ animationDelay: '260ms' }}>
         <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Par personne</p>
         <div className="grid grid-cols-2 gap-3">
-          <PersonCard
-            name="Arthur"
-            revenues={arthurRevenues}
-            expenses={arthurExpenses}
-            net={arthurNet}
-            isActive
-          />
-          <PersonCard
-            name="Paloma"
-            revenues={palomaRevenues}
-            expenses={palomaExpenses}
-            net={palomaNet}
-          />
+          <PersonCard name="Arthur" revenues={arthurRevenues} expenses={arthurExpenses} net={arthurNet} isActive />
+          <PersonCard name="Paloma" revenues={palomaRevenues} expenses={palomaExpenses} net={palomaNet} />
         </div>
       </div>
 
-      {/* Épargne du mois highlight */}
+      {/* Épargne du mois */}
       {netMonthlySavings > 0 && (
-        <Link
-          href="/epargne"
-          className="rounded-[16px] bg-[#F7F7F7] p-4 flex items-center gap-3"
-        >
+        <Link href="/epargne"
+          className="rounded-[16px] bg-[#F7F7F7] p-4 flex items-center gap-3 animate-slide-up transition-transform active:scale-[0.97] duration-100"
+          style={{ animationDelay: '320ms' }}>
           <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center">
             <PiggyBank size={20} color="white" strokeWidth={1.5} />
           </div>
           <div className="flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Mis de côté ce mois</p>
-            <p className="text-[18px] font-bold text-black leading-tight mt-0.5">
-              {formatAmount(netMonthlySavings)} €
-            </p>
+            <p className="text-[18px] font-bold text-black leading-tight mt-0.5">{f(netMonthlySavings)} €</p>
           </div>
           <ChevronRight size={18} color="#8A8A8A" />
         </Link>
@@ -189,21 +179,25 @@ export default async function DashboardPage({
 
       {/* Par catégorie */}
       {categoryTotals.length > 0 && (
-        <div>
+        <div className="animate-slide-up" style={{ animationDelay: '380ms' }}>
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Par catégorie</p>
           <div className="flex flex-col gap-3">
-            {categoryTotals.map(cat => (
-              <div key={cat.value} className="flex items-center gap-3">
+            {categoryTotals.map((cat, i) => (
+              <div key={cat.value} className="flex items-center gap-3 animate-slide-up"
+                style={{ animationDelay: `${400 + i * 45}ms` }}>
                 <CategoryIcon category={cat.value} size={18} containerSize={36} />
                 <div className="flex-1">
-                  <div className="flex justify-between mb-1">
+                  <div className="flex justify-between mb-1.5">
                     <span className="text-[14px] font-medium text-black">{cat.label}</span>
-                    <span className="text-[14px] font-semibold text-black">{formatAmount(cat.total)} €</span>
+                    <span className="text-[14px] font-semibold text-black">{f(cat.total)} €</span>
                   </div>
-                  <div className="h-[3px] bg-[#E5E5E5] rounded-full overflow-hidden">
-                    <div className="h-full bg-black rounded-full"
-                      style={{ width: `${totalExpenses > 0 ? (cat.total / totalExpenses) * 100 : 0}%` }} />
-                  </div>
+                  <AnimatedBar
+                    percent={totalExpenses > 0 ? (cat.total / totalExpenses) * 100 : 0}
+                    color="#000"
+                    bgColor="#E5E5E5"
+                    height={3}
+                    delay={450 + i * 45}
+                  />
                 </div>
               </div>
             ))}
@@ -213,14 +207,16 @@ export default async function DashboardPage({
 
       {/* Récent */}
       {recent.length > 0 && (
-        <div>
+        <div className="animate-slide-up" style={{ animationDelay: '440ms' }}>
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-1">Dépenses récentes</p>
-          {recent.map(e => <ExpenseRow key={e.id} expense={e} />)}
+          <div className="row-list">
+            {recent.map(e => <ExpenseRow key={e.id} expense={e} />)}
+          </div>
         </div>
       )}
 
       {expenses.length === 0 && revenues.length === 0 && savings.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
+        <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in">
           <p className="text-[16px] text-[#8A8A8A]">Aucune transaction ce mois</p>
           <p className="text-[13px] text-[#8A8A8A] mt-1">Appuyez sur + pour commencer</p>
         </div>
@@ -229,34 +225,19 @@ export default async function DashboardPage({
   )
 }
 
-function PersonCard({
-  name,
-  revenues,
-  expenses,
-  net,
-  isActive = false,
-}: {
-  name: string
-  revenues: number
-  expenses: number
-  net: number
-  isActive?: boolean
+function PersonCard({ name, revenues, expenses, net, isActive = false }: {
+  name: string; revenues: number; expenses: number; net: number; isActive?: boolean
 }) {
   function f(n: number) {
     return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
   return (
-    <div className="rounded-[16px] bg-[#F7F7F7] p-4 flex flex-col gap-2">
+    <div className="rounded-[16px] bg-[#F7F7F7] p-4 flex flex-col gap-2 transition-transform active:scale-[0.97] duration-100">
       <div className="flex items-center justify-between">
         <p className="text-[13px] font-semibold text-black">{name}</p>
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center"
-          style={{ background: isActive ? '#000' : '#E5E5E5' }}
-        >
-          <span
-            className="text-[10px] font-bold"
-            style={{ color: isActive ? '#fff' : '#000' }}
-          >
+        <div className="w-6 h-6 rounded-full flex items-center justify-center"
+          style={{ background: isActive ? '#000' : '#E5E5E5' }}>
+          <span className="text-[10px] font-bold" style={{ color: isActive ? '#fff' : '#000' }}>
             {name[0]}
           </span>
         </div>
@@ -274,10 +255,7 @@ function PersonCard({
       <div className="h-px bg-[#E5E5E5] my-1" />
       <div className="flex justify-between items-baseline">
         <span className="text-[11px] font-semibold uppercase tracking-[0.5px] text-[#8A8A8A]">Reste</span>
-        <span
-          className="text-[16px] font-bold"
-          style={{ color: net < 0 ? '#C0392B' : '#000' }}
-        >
+        <span className="text-[16px] font-bold" style={{ color: net < 0 ? '#C0392B' : '#000' }}>
           {net >= 0 ? '+' : ''}{f(net)} €
         </span>
       </div>

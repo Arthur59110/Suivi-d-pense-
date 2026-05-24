@@ -75,8 +75,8 @@ export default async function DepensesPage({
       </div>
 
       {/* Carte récap du filtre */}
-      <div className="px-5">
-        <div className="rounded-[20px] bg-[#F7F7F7] p-5">
+      <div className="px-5 animate-slide-up" style={{ animationDelay: '60ms' }}>
+        <div className="rounded-[20px] bg-[#F7F7F7] p-5 transition-transform active:scale-[0.98] duration-100">
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">
             {whoFilter && whoFilter !== 'all'
               ? `Dépenses ${whoFilter === 'arthur' ? 'Arthur' : 'Paloma'}`
@@ -123,7 +123,7 @@ export default async function DepensesPage({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 stagger-list">
             {Array.from(groups.entries()).map(([dateKey, items]) => {
               const dayTotal = items.reduce((s, e) => s + e.amount, 0)
               return (
@@ -136,7 +136,7 @@ export default async function DepensesPage({
                       -{formatAmount(dayTotal)} €
                     </span>
                   </div>
-                  <div>
+                  <div className="row-list">
                     {items.map(e => <ExpenseRow key={e.id} expense={e} />)}
                   </div>
                 </div>

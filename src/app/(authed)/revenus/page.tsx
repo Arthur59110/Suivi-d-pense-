@@ -123,7 +123,7 @@ export default async function RevenusPage({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 stagger-list">
             {Array.from(groups.entries()).map(([dateKey, items]) => {
               const dayTotal = items.reduce((s, r) => s + r.amount, 0)
               return (
@@ -136,7 +136,7 @@ export default async function RevenusPage({
                       +{formatAmount(dayTotal)} €
                     </span>
                   </div>
-                  <div>
+                  <div className="row-list">
                     {items.map(r => <RevenueRow key={r.id} revenue={r} />)}
                   </div>
                 </div>

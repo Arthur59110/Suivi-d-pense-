@@ -40,7 +40,7 @@ export default function PageSwitcher({ current }: { current: 'depenses' | 'reven
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 rounded-[16px] bg-white overflow-hidden z-50"
+        <div className="absolute top-full left-0 mt-2 rounded-[16px] bg-white overflow-hidden z-50 animate-scale-in origin-top-left"
           style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.14)', minWidth: 160 }}>
           {OPTIONS.map(opt => (
             <button
