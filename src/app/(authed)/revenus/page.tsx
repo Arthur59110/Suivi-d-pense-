@@ -1,13 +1,16 @@
 export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Revenue } from '@/lib/types'
+import { REVENUE_SOURCES } from '@/lib/types'
 import RevenueRow from '@/components/RevenueRow'
 import PersonFilter from '@/components/PersonFilter'
+import SourceFilter from '@/components/SourceFilter'
+import PageSwitcher from '@/components/PageSwitcher'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
-import PageSwitcher from '@/components/PageSwitcher'
 import { format, parseISO, isToday, isYesterday, isThisWeek, isThisYear, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { Suspense } from 'react'
 
 function formatAmount(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -32,19 +35,24 @@ function groupLabel(dateStr: string): string {
 export default async function RevenusPage({
   searchParams,
 }: {
-  searchParams: Promise<{ who?: string }>
+  searchParams: Promise<{ who?: string; src?: string }>
 }) {
-  const { who: whoFilter } = await searchParams
+  const { who: whoFilter, src: srcFilter } = await searchParams
   const supabase = await getSupabaseServer()
 
   let query = supabase.from('revenues').select('*').order('date', { ascending: false })
   if (whoFilter && whoFilter !== 'all') query = query.eq('who', whoFilter)
+  if (srcFilter) query = query.eq('source', srcFilter)
 
   const { data } = await query
   const revenues: Revenue[] = (data as Revenue[] | null) ?? []
 
   const total = revenues.reduce((s, r) => s + r.amount, 0)
   const count = revenues.length
+
+  const activeSourceLabel = srcFilter
+    ? REVENUE_SOURCES.find(s => s.value === srcFilter)?.label ?? srcFilter
+    : null
 
   const groups = new Map<string, Revenue[]>()
   for (const r of revenues) {
@@ -72,7 +80,9 @@ export default async function RevenusPage({
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">
             {whoFilter && whoFilter !== 'all'
               ? `Revenus ${whoFilter === 'arthur' ? 'Arthur' : 'Paloma'}`
-              : 'Total des revenus'}
+              : activeSourceLabel
+                ? `Type · ${activeSourceLabel}`
+                : 'Total des revenus'}
           </p>
           <p className="text-[36px] font-bold text-black mt-1 leading-none tracking-[-1px]">
             +{formatAmount(total)} €
@@ -91,13 +101,25 @@ export default async function RevenusPage({
         <PersonFilter activeWho={whoFilter} />
       </div>
 
+      {/* Filtre par type */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3 px-5">
+          Type
+        </p>
+        <div className="px-5">
+          <Suspense>
+            <SourceFilter activeSrc={srcFilter} />
+          </Suspense>
+        </div>
+      </div>
+
       {/* Liste groupée par jour */}
       <div className="px-5">
         {count === 0 ? (
           <div className="py-16 text-center">
             <p className="text-[16px] text-[#8A8A8A]">Aucun revenu</p>
             <p className="text-[13px] text-[#8A8A8A] mt-1">
-              {whoFilter ? 'Essayez un autre filtre' : 'Appuyez sur + pour en ajouter un'}
+              {whoFilter || srcFilter ? 'Essayez un autre filtre' : 'Appuyez sur + pour en ajouter un'}
             </p>
           </div>
         ) : (

@@ -1,8 +1,9 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { createExpense, createRevenue, createRevenueFromSavings } from '@/lib/actions'
-import { CATEGORIES } from '@/lib/types'
+import { CATEGORIES, REVENUE_SOURCES } from '@/lib/types'
 import CategoryIcon from '@/components/CategoryIcon'
+import RevenueIcon from '@/components/RevenueIcon'
 import { ChevronLeft, PiggyBank } from 'lucide-react'
 import Link from 'next/link'
 import { format, startOfMonth, parseISO } from 'date-fns'
@@ -27,6 +28,7 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
   const [category, setCategory] = useState('')
 
   // Revenu
+  const [source, setSource] = useState('')
   const [budgetMonthValue, setBudgetMonthValue] = useState(toMonthValue(today))
   const [fromSavings, setFromSavings] = useState(false)
   const [savingsAccount, setSavingsAccount] = useState('')
@@ -66,7 +68,7 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
       if (fromSavings && !savingsAccount.trim()) { setError('Sélectionne le compte d\'épargne à débiter'); return }
       startTransition(async () => {
         try {
-          const revenueData = { amount: numAmount, description, source: '', who, date, budget_month: toBudgetMonthDate(budgetMonthValue) }
+          const revenueData = { amount: numAmount, description, source: source || 'autre', who, date, budget_month: toBudgetMonthDate(budgetMonthValue) }
           if (fromSavings) {
             await createRevenueFromSavings(revenueData, savingsWho, savingsAccount.trim())
           } else {
@@ -174,6 +176,26 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
           <input type="date" value={date} onChange={e => handleDateChange(e.target.value)}
             className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
         </div>
+
+        {/* Type de revenu */}
+        {mode === 'revenue' && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Type</p>
+            <div className="grid grid-cols-4 gap-2">
+              {REVENUE_SOURCES.map(src => (
+                <button key={src.value} type="button" onClick={() => setSource(src.value)}
+                  className="flex flex-col items-center gap-1.5 rounded-[12px] py-3 px-1 transition-all"
+                  style={{ background: source === src.value ? '#000' : '#F7F7F7' }}>
+                  <RevenueIcon source={src.value} size={20} containerSize={36} inverted={source === src.value} />
+                  <span className="text-[10px] font-medium leading-tight text-center"
+                    style={{ color: source === src.value ? '#fff' : '#8A8A8A' }}>
+                    {src.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Mois budget (revenu uniquement) */}
         {mode === 'revenue' && (
