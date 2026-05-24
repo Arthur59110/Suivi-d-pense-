@@ -69,18 +69,22 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       })
       const json = sub.toJSON()
       startTransition(async () => {
-        const res = await subscribePush({
-          endpoint: json.endpoint!,
-          p256dh: json.keys!.p256dh,
-          auth: json.keys!.auth,
-          who,
-        })
-        if (!res.ok) {
-          setMsg('Sauvegarde DB échouée : ' + res.error)
-        } else {
-          setSubscribed(true)
-          setMsg('Notifications activées')
-          refreshStatus()
+        try {
+          const res = await subscribePush({
+            endpoint: json.endpoint!,
+            p256dh: json.keys!.p256dh,
+            auth: json.keys!.auth,
+            who,
+          })
+          if (!res.ok) {
+            setMsg('Sauvegarde DB échouée : ' + res.error)
+          } else {
+            setSubscribed(true)
+            setMsg('Notifications activées ✓')
+            refreshStatus()
+          }
+        } catch (e) {
+          setMsg('Erreur réseau action : ' + (e instanceof Error ? e.message : String(e)))
         }
       })
     } catch (e) {
@@ -119,6 +123,29 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
         setMsg('Test échoué : ' + res.error)
       }
     })
+  }
+
+  async function debugBrowser() {
+    const lines: string[] = []
+    lines.push(`Permission: ${Notification.permission}`)
+    lines.push(`SW: ${'serviceWorker' in navigator ? 'oui' : 'non'}`)
+    lines.push(`Standalone: ${standalone ? 'oui' : 'non'}`)
+    try {
+      const reg = await navigator.serviceWorker.ready
+      lines.push(`SW scope: ${reg.scope}`)
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) {
+        lines.push(`Sub endpoint: ...${sub.endpoint.slice(-30)}`)
+        const json = sub.toJSON()
+        lines.push(`p256dh: ${json.keys?.p256dh ? 'ok' : 'manquant'}`)
+        lines.push(`auth: ${json.keys?.auth ? 'ok' : 'manquant'}`)
+      } else {
+        lines.push('Sub: aucune')
+      }
+    } catch (e) {
+      lines.push('SW err: ' + (e instanceof Error ? e.message : String(e)))
+    }
+    setMsg(lines.join('\n'))
   }
 
   if (!supported) {
@@ -182,6 +209,12 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
           M&apos;envoyer un test
         </button>
       )}
+      <button
+        onClick={debugBrowser}
+        className="h-[36px] rounded-[10px] text-[11px] text-[#8A8A8A] bg-white border border-[#EAEAEA] active:scale-[0.97] transition-transform duration-100"
+      >
+        Diagnostic browser
+      </button>
 
       {permission === 'denied' && (
         <p className="text-[11px] text-[#C0392B]">
