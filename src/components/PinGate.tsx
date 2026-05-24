@@ -1,5 +1,5 @@
 'use client'
-import { useState, useLayoutEffect } from 'react'
+import { useState, useLayoutEffect, useEffect } from 'react'
 import { Lock, Delete } from 'lucide-react'
 
 const PIN = '1306'
@@ -10,9 +10,13 @@ export default function PinGate({ children }: { children: React.ReactNode }) {
   const [input, setInput] = useState('')
   const [shake, setShake] = useState(false)
 
-  // useLayoutEffect runs synchronously before the browser paints — no flash
   useLayoutEffect(() => {
     setState(sessionStorage.getItem('epg') === '1' ? 'unlocked' : 'locked')
+  }, [])
+
+  // Efface le code dès qu'on quitte la page épargne
+  useEffect(() => {
+    return () => { sessionStorage.removeItem('epg') }
   }, [])
 
   function press(digit: string) {
