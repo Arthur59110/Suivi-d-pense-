@@ -58,6 +58,7 @@ export interface Saving {
   amount: number
   description: string
   who: 'arthur' | 'paloma'
+  type: 'deposit' | 'withdrawal'
   date: string
   created_at: string
 }

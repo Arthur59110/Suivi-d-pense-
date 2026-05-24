@@ -25,6 +25,7 @@ export const savingSchema = z.object({
   amount: z.number().positive('Le montant doit être positif'),
   description: z.string(),
   who: z.enum(['arthur', 'paloma']),
+  type: z.enum(['deposit', 'withdrawal']).default('deposit'),
   date: z.string().min(1, 'La date est requise'),
 })
 
