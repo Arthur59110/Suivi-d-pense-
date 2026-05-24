@@ -66,7 +66,7 @@ export default async function DepensesPage({
       <div className="px-5 flex items-center justify-between">
         <h1 className="text-[28px] font-bold text-black">Dépenses</h1>
         <Link
-          href="/depenses/new"
+          href="/ajouter"
           className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-black"
         >
           <Plus size={20} color="white" />
