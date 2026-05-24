@@ -322,10 +322,33 @@ export async function updateSaving(id: string, data: SavingFormValues) {
 
 export async function deleteSaving(id: string) {
   const supabase = await getSupabaseServer()
+
+  // Récupère le saving avant suppression pour retrouver la dépense liée
+  const { data: saving } = await supabase
+    .from('savings')
+    .select('amount, who, date, account_name, description')
+    .eq('id', id)
+    .single()
+
   const { error } = await supabase.from('savings').delete().eq('id', id)
   if (error) throw new Error(friendlyError(error.message))
+
+  // Si ce saving venait de createSavingFromBudget, supprime aussi la dépense liée
+  if (saving) {
+    const linkedDesc = `Mise de côté — ${saving.account_name}`
+    await supabase
+      .from('expenses')
+      .delete()
+      .eq('amount', saving.amount)
+      .eq('who', saving.who)
+      .eq('date', saving.date)
+      .eq('description', linkedDesc)
+      .eq('category', 'epargne')
+  }
+
   revalidatePath('/')
   revalidatePath('/epargne')
+  revalidatePath('/depenses')
 }
 
 export async function cancelReport(revenueIds: string[]) {
