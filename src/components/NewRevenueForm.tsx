@@ -31,6 +31,7 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
 
   const [fromSavings, setFromSavings] = useState(false)
   const [savingsAccount, setSavingsAccount] = useState('')
+  const [savingsWho, setSavingsWho] = useState<'arthur' | 'paloma'>('arthur')
 
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -40,7 +41,10 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
     setBudgetMonthValue(toMonthValue(val))
   }
 
-  const accountSuggestions = savingsAccounts.filter(a => a.who === who).map(a => a.account_name)
+  function selectAccount(person: 'arthur' | 'paloma', name: string) {
+    setSavingsWho(person)
+    setSavingsAccount(name)
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -48,7 +52,7 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
     const numAmount = parseFloat(amount.replace(',', '.'))
     if (!numAmount || numAmount <= 0) { setError('Montant invalide'); return }
     if (!source) { setError('Sélectionnez une source'); return }
-    if (fromSavings && !savingsAccount.trim()) { setError('Précise le compte d\'épargne utilisé'); return }
+    if (fromSavings && !savingsAccount.trim()) { setError('Sélectionne le compte d\'épargne à débiter'); return }
 
     startTransition(async () => {
       try {
@@ -57,7 +61,7 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
           budget_month: toBudgetMonthDate(budgetMonthValue),
         }
         if (fromSavings) {
-          await createRevenueFromSavings(revenueData, who, savingsAccount.trim())
+          await createRevenueFromSavings(revenueData, savingsWho, savingsAccount.trim())
         } else {
           await createRevenue(revenueData)
         }
@@ -68,6 +72,9 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
       }
     })
   }
+
+  const arthurAccounts = savingsAccounts.filter(a => a.who === 'arthur')
+  const palomaAccounts = savingsAccounts.filter(a => a.who === 'paloma')
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-80px)] px-5 pt-4">
@@ -136,14 +143,14 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
             className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
         </div>
 
-        {/* Toggle : provient de l'épargne */}
+        {/* Toggle : pioché dans l'épargne */}
         <div
           className="rounded-[16px] border-2 overflow-hidden transition-all"
           style={{ borderColor: fromSavings ? '#000' : '#F0F0F0' }}
         >
           <button
             type="button"
-            onClick={() => setFromSavings(v => !v)}
+            onClick={() => { setFromSavings(v => !v); setSavingsAccount('') }}
             className="w-full flex items-center gap-3 px-4 py-4"
           >
             <div
@@ -170,24 +177,81 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
           </button>
 
           {fromSavings && (
-            <div className="px-4 pb-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
-                Compte d'épargne débité
+            <div className="px-4 pb-4 flex flex-col gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">
+                Compte à débiter
               </p>
-              <input
-                list="savings-accounts-datalist"
-                value={savingsAccount}
-                onChange={e => setSavingsAccount(e.target.value)}
-                placeholder="Ex. PEA, PEL, Livret A…"
-                className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-3.5 text-[16px] text-black placeholder-[#8A8A8A] outline-none"
-              />
-              <datalist id="savings-accounts-datalist">
-                {accountSuggestions.map((name, i) => <option key={i} value={name} />)}
-              </datalist>
-              {accountSuggestions.length === 0 && (
-                <p className="text-[12px] text-[#8A8A8A] mt-2 px-1">
-                  Aucun compte d'épargne pour {who === 'arthur' ? 'Arthur' : 'Paloma'} — saisir le nom manuellement
+
+              {savingsAccounts.length === 0 ? (
+                <p className="text-[13px] text-[#8A8A8A]">
+                  Aucun compte d'épargne — créez-en un dans l'onglet Épargne
                 </p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {arthurAccounts.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div className="w-5 h-5 rounded-full bg-black flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-white">A</span>
+                        </div>
+                        <span className="text-[12px] font-semibold text-[#8A8A8A]">Arthur</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {arthurAccounts.map(acc => {
+                          const selected = savingsAccount === acc.account_name && savingsWho === 'arthur'
+                          return (
+                            <button key={acc.account_name} type="button"
+                              onClick={() => selectAccount('arthur', acc.account_name)}
+                              className="flex items-center px-3 py-3 rounded-[10px] text-left transition-colors"
+                              style={{ background: selected ? '#000' : '#F0F0F0' }}>
+                              <span className="text-[14px] font-medium flex-1"
+                                style={{ color: selected ? '#fff' : '#000' }}>
+                                {acc.account_name}
+                              </span>
+                              {selected && (
+                                <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                                  <div className="w-2 h-2 rounded-full bg-black" />
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {palomaAccounts.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <div className="w-5 h-5 rounded-full bg-[#E5E5E5] flex items-center justify-center">
+                          <span className="text-[9px] font-bold text-black">P</span>
+                        </div>
+                        <span className="text-[12px] font-semibold text-[#8A8A8A]">Paloma</span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {palomaAccounts.map(acc => {
+                          const selected = savingsAccount === acc.account_name && savingsWho === 'paloma'
+                          return (
+                            <button key={acc.account_name} type="button"
+                              onClick={() => selectAccount('paloma', acc.account_name)}
+                              className="flex items-center px-3 py-3 rounded-[10px] text-left transition-colors"
+                              style={{ background: selected ? '#000' : '#F0F0F0' }}>
+                              <span className="text-[14px] font-medium flex-1"
+                                style={{ color: selected ? '#fff' : '#000' }}>
+                                {acc.account_name}
+                              </span>
+                              {selected && (
+                                <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                                  <div className="w-2 h-2 rounded-full bg-black" />
+                                </div>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
