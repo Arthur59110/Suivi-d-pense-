@@ -69,14 +69,12 @@ export default async function ProfilPage() {
       </div>
 
       {/* Notifications */}
-      {isArthur && (
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
-            Notifications
-          </p>
-          <NotificationToggle who={who} />
-        </div>
-      )}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
+          Notifications
+        </p>
+        <NotificationToggle who={who} />
+      </div>
 
       {/* Déconnexion */}
       <div className="mt-2">

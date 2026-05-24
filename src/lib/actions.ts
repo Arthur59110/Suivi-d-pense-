@@ -24,11 +24,20 @@ async function notifyArthurIfPaloma(payload: { title: string; body: string; url?
   try {
     const supabase = await getSupabaseServer()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) return
-    if (getWhoFromEmail(user.email) !== 'paloma') return
+    if (!user?.email) {
+      console.log('[push] skip: no user email')
+      return
+    }
+    const who = getWhoFromEmail(user.email)
+    if (who !== 'paloma') {
+      console.log(`[push] skip: actor is "${who}" (not paloma)`)
+      return
+    }
+    console.log('[push] paloma triggered, sending to arthur:', payload.title)
     await sendPushTo('arthur', payload)
-  } catch {
-    // ne jamais bloquer l'action principale
+    console.log('[push] sent ok')
+  } catch (err) {
+    console.error('[push] notifyArthurIfPaloma failed:', err)
   }
 }
 
@@ -43,6 +52,65 @@ export async function subscribePush(sub: { endpoint: string; p256dh: string; aut
 export async function unsubscribePush(endpoint: string) {
   const db = getSupabaseAdmin()
   await db.from('push_subscriptions').delete().eq('endpoint', endpoint)
+}
+
+export async function sendTestPush(who: 'arthur' | 'paloma') {
+  const db = getSupabaseAdmin()
+  const { data: subs, error: selErr } = await db
+    .from('push_subscriptions')
+    .select('id, endpoint')
+    .eq('who', who)
+  if (selErr) throw new Error('DB: ' + selErr.message)
+  const count = subs?.length ?? 0
+
+  const hasPub = !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const hasPriv = !!process.env.VAPID_PRIVATE_KEY
+  if (!hasPub || !hasPriv) {
+    throw new Error(`VAPID manquant (pub=${hasPub} priv=${hasPriv}) — ajoute les variables dans Vercel et redéploie`)
+  }
+  if (count === 0) {
+    throw new Error(`Aucun abonnement en base pour "${who}". Active les notifs dans Profil depuis l'app installée.`)
+  }
+  await sendPushTo(who, {
+    title: 'Test de notification',
+    body: `Si tu vois ce message, c'est gagné (${count} appareil${count > 1 ? 's' : ''} abonné${count > 1 ? 's' : ''})`,
+    url: '/profil',
+    tag: 'test-' + Date.now(),
+  })
+  return { count }
+}
+
+export async function getPushStatus(who: 'arthur' | 'paloma') {
+  const db = getSupabaseAdmin()
+  const { data, error } = await db
+    .from('push_subscriptions')
+    .select('id, endpoint, created_at')
+    .eq('who', who)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return {
+    count: data?.length ?? 0,
+    hasVapidPublic: !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    hasVapidPrivate: !!process.env.VAPID_PRIVATE_KEY,
+    endpoints: (data ?? []).map(d => ({
+      id: d.id,
+      provider: extractProvider(d.endpoint),
+      created_at: d.created_at,
+    })),
+  }
+}
+
+function extractProvider(endpoint: string): string {
+  try {
+    const host = new URL(endpoint).hostname
+    if (host.includes('apple')) return 'Apple (iOS/macOS)'
+    if (host.includes('google') || host.includes('fcm')) return 'Google (Android/Chrome)'
+    if (host.includes('mozilla')) return 'Mozilla (Firefox)'
+    if (host.includes('windows')) return 'Microsoft'
+    return host
+  } catch {
+    return 'inconnu'
+  }
 }
 
 function friendlyError(raw: string): string {

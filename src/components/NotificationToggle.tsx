@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useTransition } from 'react'
-import { subscribePush, unsubscribePush } from '@/lib/actions'
-import { Bell, BellOff } from 'lucide-react'
+import { subscribePush, unsubscribePush, sendTestPush, getPushStatus } from '@/lib/actions'
+import { Bell, BellOff, Send, RefreshCw } from 'lucide-react'
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
@@ -12,22 +12,40 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return out
 }
 
+type Status = Awaited<ReturnType<typeof getPushStatus>>
+
 export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }) {
   const [supported, setSupported] = useState(false)
+  const [standalone, setStandalone] = useState(false)
   const [permission, setPermission] = useState<NotificationPermission | 'unknown'>('unknown')
   const [subscribed, setSubscribed] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [msg, setMsg] = useState<string | null>(null)
+  const [status, setStatus] = useState<Status | null>(null)
+
+  async function refreshStatus() {
+    try {
+      const s = await getPushStatus(who)
+      setStatus(s)
+    } catch {}
+  }
 
   useEffect(() => {
     const ok = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
     setSupported(ok)
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      // @ts-expect-error iOS Safari
+      window.navigator.standalone === true
+    setStandalone(isStandalone)
     if (!ok) return
     setPermission(Notification.permission)
     navigator.serviceWorker.ready
       .then(reg => reg.pushManager.getSubscription())
       .then(sub => setSubscribed(!!sub))
       .catch(() => {})
+    refreshStatus()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function enable() {
@@ -40,30 +58,36 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       return
     }
     const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!pub) { setMsg('Clé VAPID manquante') ; return }
+    if (!pub) { setMsg('Clé VAPID publique manquante côté client (vérifie Vercel env vars)') ; return }
 
-    const reg = await navigator.serviceWorker.ready
-    const key = urlBase64ToUint8Array(pub)
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer,
-    })
-    const json = sub.toJSON()
-    startTransition(async () => {
-      try {
-        await subscribePush({
-          endpoint: json.endpoint!,
-          p256dh: json.keys!.p256dh,
-          auth: json.keys!.auth,
-          who,
-        })
-        setSubscribed(true)
-        setMsg('Notifications activées')
-      } catch (e) {
-        const err = e instanceof Error ? e.message : String(e)
-        setMsg(err)
-      }
-    })
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const key = urlBase64ToUint8Array(pub)
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: key.buffer.slice(key.byteOffset, key.byteOffset + key.byteLength) as ArrayBuffer,
+      })
+      const json = sub.toJSON()
+      startTransition(async () => {
+        try {
+          await subscribePush({
+            endpoint: json.endpoint!,
+            p256dh: json.keys!.p256dh,
+            auth: json.keys!.auth,
+            who,
+          })
+          setSubscribed(true)
+          setMsg('Notifications activées')
+          refreshStatus()
+        } catch (e) {
+          const err = e instanceof Error ? e.message : String(e)
+          setMsg('Sauvegarde DB échouée : ' + err)
+        }
+      })
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e)
+      setMsg("Abonnement échoué : " + err)
+    }
   }
 
   async function disable() {
@@ -78,9 +102,23 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
         await unsubscribePush(endpoint)
         setSubscribed(false)
         setMsg('Notifications désactivées')
+        refreshStatus()
       } catch (e) {
         const err = e instanceof Error ? e.message : String(e)
         setMsg(err)
+      }
+    })
+  }
+
+  async function test() {
+    setMsg(null)
+    startTransition(async () => {
+      try {
+        const res = await sendTestPush(who)
+        setMsg(`Test envoyé à ${res.count} appareil${res.count > 1 ? 's' : ''}. Si rien ne s'affiche d'ici 30s, regarde l'état ci-dessous.`)
+      } catch (e) {
+        const err = e instanceof Error ? e.message : String(e)
+        setMsg('Test échoué : ' + err)
       }
     })
   }
@@ -90,7 +128,7 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       <div className="rounded-[16px] bg-[#F7F7F7] p-4">
         <p className="text-[14px] font-semibold text-black">Notifications</p>
         <p className="text-[12px] text-[#8A8A8A] mt-1">
-          Indisponible sur ce navigateur. Sur iPhone, installez l'app sur l'écran d'accueil.
+          Indisponible sur ce navigateur. Sur iPhone, installez l&apos;app sur l&apos;écran d&apos;accueil.
         </p>
       </div>
     )
@@ -113,6 +151,16 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
           </p>
         </div>
       </div>
+
+      {!standalone && (
+        <div className="rounded-[10px] bg-[#FFF4E5] border border-[#FFD699] p-3">
+          <p className="text-[12px] text-[#8A4B00] font-semibold">App non installée</p>
+          <p className="text-[11px] text-[#8A4B00] leading-snug mt-1">
+            Sur iPhone, les notifs ne fonctionnent QUE depuis l&apos;app installée (Safari → Partager → Sur l&apos;écran d&apos;accueil), pas depuis le navigateur.
+          </p>
+        </div>
+      )}
+
       <button
         onClick={subscribed ? disable : enable}
         disabled={isPending || permission === 'denied'}
@@ -125,12 +173,49 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       >
         {isPending ? '…' : subscribed ? 'Désactiver' : 'Activer les notifications'}
       </button>
+
+      {subscribed && (
+        <button
+          onClick={test}
+          disabled={isPending}
+          className="h-[40px] rounded-[12px] text-[13px] font-semibold bg-white border border-[#E5E5E5] flex items-center justify-center gap-2 active:scale-[0.97] transition-transform duration-100 disabled:opacity-40"
+        >
+          <Send size={14} strokeWidth={1.8} />
+          M&apos;envoyer un test
+        </button>
+      )}
+
       {permission === 'denied' && (
         <p className="text-[11px] text-[#C0392B]">
           Permission bloquée. Réglages iOS → Notifications → autoriser pour cette app.
         </p>
       )}
-      {msg && <p className="text-[11px] text-[#8A8A8A]">{msg}</p>}
+      {msg && <p className="text-[11px] text-[#8A8A8A] whitespace-pre-line">{msg}</p>}
+
+      {status && (
+        <div className="rounded-[10px] bg-white border border-[#EAEAEA] p-3 flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] font-semibold text-black uppercase tracking-wide">État serveur</p>
+            <button onClick={refreshStatus} className="p-1 active:scale-90 transition-transform" aria-label="Rafraîchir">
+              <RefreshCw size={12} color="#8A8A8A" />
+            </button>
+          </div>
+          <p className="text-[11px] text-[#8A8A8A]">
+            Clé VAPID publique : <span className={status.hasVapidPublic ? 'text-[#2E7D32]' : 'text-[#C0392B]'}>{status.hasVapidPublic ? 'OK' : 'MANQUANT'}</span>
+          </p>
+          <p className="text-[11px] text-[#8A8A8A]">
+            Clé VAPID privée : <span className={status.hasVapidPrivate ? 'text-[#2E7D32]' : 'text-[#C0392B]'}>{status.hasVapidPrivate ? 'OK' : 'MANQUANT'}</span>
+          </p>
+          <p className="text-[11px] text-[#8A8A8A]">
+            Appareils abonnés pour <b>{who}</b> : <span className={status.count > 0 ? 'text-[#2E7D32] font-semibold' : 'text-[#C0392B] font-semibold'}>{status.count}</span>
+          </p>
+          {status.endpoints.map(e => (
+            <p key={e.id} className="text-[10px] text-[#8A8A8A] pl-2">
+              · {e.provider}
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
