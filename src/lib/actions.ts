@@ -41,12 +41,17 @@ async function notifyArthurIfPaloma(payload: { title: string; body: string; url?
   }
 }
 
-export async function subscribePush(sub: { endpoint: string; p256dh: string; auth: string; who: 'arthur' | 'paloma' }) {
-  const db = getSupabaseAdmin()
-  const { error } = await db.from('push_subscriptions').upsert({
-    endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, who: sub.who,
-  }, { onConflict: 'endpoint' })
-  if (error) throw new Error(error.message)
+export async function subscribePush(sub: { endpoint: string; p256dh: string; auth: string; who: 'arthur' | 'paloma' }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const db = getSupabaseAdmin()
+    const { error } = await db.from('push_subscriptions').upsert({
+      endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, who: sub.who,
+    }, { onConflict: 'endpoint' })
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 export async function unsubscribePush(endpoint: string) {
@@ -54,30 +59,34 @@ export async function unsubscribePush(endpoint: string) {
   await db.from('push_subscriptions').delete().eq('endpoint', endpoint)
 }
 
-export async function sendTestPush(who: 'arthur' | 'paloma') {
-  const db = getSupabaseAdmin()
-  const { data: subs, error: selErr } = await db
-    .from('push_subscriptions')
-    .select('id, endpoint')
-    .eq('who', who)
-  if (selErr) throw new Error('DB: ' + selErr.message)
-  const count = subs?.length ?? 0
+export async function sendTestPush(who: 'arthur' | 'paloma'): Promise<{ ok: boolean; count?: number; error?: string }> {
+  try {
+    const db = getSupabaseAdmin()
+    const { data: subs, error: selErr } = await db
+      .from('push_subscriptions')
+      .select('id, endpoint')
+      .eq('who', who)
+    if (selErr) return { ok: false, error: 'DB: ' + selErr.message }
+    const count = subs?.length ?? 0
 
-  const hasPub = !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-  const hasPriv = !!process.env.VAPID_PRIVATE_KEY
-  if (!hasPub || !hasPriv) {
-    throw new Error(`VAPID manquant (pub=${hasPub} priv=${hasPriv}) — ajoute les variables dans Vercel et redéploie`)
+    const hasPub = !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    const hasPriv = !!process.env.VAPID_PRIVATE_KEY
+    if (!hasPub || !hasPriv) {
+      return { ok: false, error: `VAPID manquant (pub=${hasPub} priv=${hasPriv}) — ajoute les variables dans Vercel et redéploie` }
+    }
+    if (count === 0) {
+      return { ok: false, error: `Aucun abonnement en base pour "${who}". Désactive puis réactive les notifs.` }
+    }
+    await sendPushTo(who, {
+      title: 'Test de notification',
+      body: `C'est gagné ! (${count} appareil${count > 1 ? 's' : ''} abonné${count > 1 ? 's' : ''})`,
+      url: '/profil',
+      tag: 'test-' + Date.now(),
+    })
+    return { ok: true, count }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }
-  if (count === 0) {
-    throw new Error(`Aucun abonnement en base pour "${who}". Active les notifs dans Profil depuis l'app installée.`)
-  }
-  await sendPushTo(who, {
-    title: 'Test de notification',
-    body: `Si tu vois ce message, c'est gagné (${count} appareil${count > 1 ? 's' : ''} abonné${count > 1 ? 's' : ''})`,
-    url: '/profil',
-    tag: 'test-' + Date.now(),
-  })
-  return { count }
 }
 
 export async function getPushStatus(who: 'arthur' | 'paloma') {

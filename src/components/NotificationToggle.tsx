@@ -69,19 +69,18 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
       })
       const json = sub.toJSON()
       startTransition(async () => {
-        try {
-          await subscribePush({
-            endpoint: json.endpoint!,
-            p256dh: json.keys!.p256dh,
-            auth: json.keys!.auth,
-            who,
-          })
+        const res = await subscribePush({
+          endpoint: json.endpoint!,
+          p256dh: json.keys!.p256dh,
+          auth: json.keys!.auth,
+          who,
+        })
+        if (!res.ok) {
+          setMsg('Sauvegarde DB échouée : ' + res.error)
+        } else {
           setSubscribed(true)
           setMsg('Notifications activées')
           refreshStatus()
-        } catch (e) {
-          const err = e instanceof Error ? e.message : String(e)
-          setMsg('Sauvegarde DB échouée : ' + err)
         }
       })
     } catch (e) {
@@ -113,12 +112,11 @@ export default function NotificationToggle({ who }: { who: 'arthur' | 'paloma' }
   async function test() {
     setMsg(null)
     startTransition(async () => {
-      try {
-        const res = await sendTestPush(who)
-        setMsg(`Test envoyé à ${res.count} appareil${res.count > 1 ? 's' : ''}. Si rien ne s'affiche d'ici 30s, regarde l'état ci-dessous.`)
-      } catch (e) {
-        const err = e instanceof Error ? e.message : String(e)
-        setMsg('Test échoué : ' + err)
+      const res = await sendTestPush(who)
+      if (res.ok) {
+        setMsg(`Test envoyé à ${res.count} appareil${(res.count ?? 0) > 1 ? 's' : ''}. Si rien dans 30s → vérifie que les notifs sont autorisées dans Réglages iOS.`)
+      } else {
+        setMsg('Test échoué : ' + res.error)
       }
     })
   }
