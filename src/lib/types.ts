@@ -19,6 +19,7 @@ export const CATEGORIES = [
   { value: 'sante', label: 'Santé', icon: 'Heart' },
   { value: 'shopping', label: 'Shopping', icon: 'ShoppingBag' },
   { value: 'voyages', label: 'Voyages', icon: 'Plane' },
+  { value: 'epargne', label: 'Épargne', icon: 'PiggyBank' },
   { value: 'autre', label: 'Autre', icon: 'MoreHorizontal' },
 ] as const
 

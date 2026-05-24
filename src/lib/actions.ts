@@ -259,6 +259,39 @@ export async function deleteRevenue(id: string) {
   revalidatePath('/revenus')
 }
 
+export async function createSavingFromBudget(savingData: SavingFormValues) {
+  const parsedSaving = savingSchema.safeParse(savingData)
+  if (!parsedSaving.success) throw new Error('Données épargne invalides')
+
+  const parsedExpense = expenseSchema.safeParse({
+    amount: savingData.amount,
+    description: `Mise de côté — ${savingData.account_name}`,
+    category: 'epargne',
+    who: savingData.who,
+    is_personal: true,
+    date: savingData.date,
+  })
+  if (!parsedExpense.success) throw new Error('Données dépense invalides')
+
+  const supabase = await getSupabaseServer()
+  const [r1, r2] = await Promise.all([
+    supabase.from('savings').insert(parsedSaving.data),
+    supabase.from('expenses').insert(parsedExpense.data),
+  ])
+  if (r1.error) throw new Error(friendlyError(r1.error.message))
+  if (r2.error) throw new Error(friendlyError(r2.error.message))
+
+  await notifyArthurIfPaloma({
+    title: 'Paloma a mis de côté',
+    body: `${savingData.account_name} · +${fmtAmount(savingData.amount)} € (depuis le budget)`,
+    url: '/epargne',
+  })
+  revalidatePath('/')
+  revalidatePath('/epargne')
+  revalidatePath('/depenses')
+  redirect('/epargne')
+}
+
 export async function createSaving(data: SavingFormValues) {
   const parsed = savingSchema.safeParse(data)
   if (!parsed.success) throw new Error('Données invalides')

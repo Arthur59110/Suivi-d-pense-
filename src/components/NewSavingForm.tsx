@@ -1,8 +1,8 @@
 'use client'
 import { useState, useTransition } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { createSaving } from '@/lib/actions'
-import { ChevronLeft, ArrowDown, ArrowUp } from 'lucide-react'
+import { createSaving, createSavingFromBudget } from '@/lib/actions'
+import { ChevronLeft, ArrowDown, ArrowUp, Wallet } from 'lucide-react'
 import Link from 'next/link'
 
 interface ExistingAccount {
@@ -18,6 +18,7 @@ export default function NewSavingForm({ existingAccounts }: { existingAccounts: 
   const initialAccount = params.get('account') ?? ''
 
   const [type, setType] = useState<'deposit' | 'withdrawal'>(initialType)
+  const [deductFromBudget, setDeductFromBudget] = useState(false)
   const [amount, setAmount] = useState('')
   const [who, setWho] = useState<'arthur' | 'paloma'>(initialWho)
   const [accountName, setAccountName] = useState(initialAccount)
@@ -38,7 +39,12 @@ export default function NewSavingForm({ existingAccounts }: { existingAccounts: 
 
     startTransition(async () => {
       try {
-        await createSaving({ amount: numAmount, description, who, type, account_name: accountName.trim(), date })
+        const payload = { amount: numAmount, description, who, type, account_name: accountName.trim(), date }
+        if (type === 'deposit' && deductFromBudget) {
+          await createSavingFromBudget(payload)
+        } else {
+          await createSaving(payload)
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes('NEXT_REDIRECT')) throw err
@@ -141,6 +147,39 @@ export default function NewSavingForm({ existingAccounts }: { existingAccounts: 
             }
           </p>
         </div>
+
+        {!isWithdrawal && (
+          <button
+            type="button"
+            onClick={() => setDeductFromBudget(v => !v)}
+            className="flex items-center gap-3 rounded-[14px] px-4 py-3.5 transition-all"
+            style={{
+              background: deductFromBudget ? '#000' : '#F7F7F7',
+              border: deductFromBudget ? 'none' : '1px solid #E5E5E5',
+            }}
+          >
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: deductFromBudget ? 'rgba(255,255,255,0.15)' : '#E5E5E5' }}>
+              <Wallet size={15} color={deductFromBudget ? '#fff' : '#8A8A8A'} strokeWidth={1.8} />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="text-[13px] font-semibold leading-snug"
+                style={{ color: deductFromBudget ? '#fff' : '#000' }}>
+                Déduire du budget
+              </p>
+              <p className="text-[11px] leading-snug mt-0.5"
+                style={{ color: deductFromBudget ? 'rgba(255,255,255,0.65)' : '#8A8A8A' }}>
+                {deductFromBudget
+                  ? 'Enregistré comme dépense dans le budget'
+                  : 'L\'argent vient de ton salaire ou solde'}
+              </p>
+            </div>
+            <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+              style={{ borderColor: deductFromBudget ? '#fff' : '#C8C8C8', background: deductFromBudget ? '#fff' : 'transparent' }}>
+              {deductFromBudget && <div className="w-2.5 h-2.5 rounded-full bg-black" />}
+            </div>
+          </button>
+        )}
 
         {error && <p className="text-[13px] text-red-500">{error}</p>}
 
