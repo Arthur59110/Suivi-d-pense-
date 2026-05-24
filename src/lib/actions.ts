@@ -176,30 +176,28 @@ export async function reportBalance(
   const label = `Report ${monthNames[m - 1]} ${y}`
 
   const supabase = await getSupabaseServer()
-  const inserts: Promise<unknown>[] = []
 
   if (arthurAmount > 0.01) {
-    inserts.push(supabase.from('revenues').insert({
+    await supabase.from('revenues').insert({
       amount: Math.round(arthurAmount * 100) / 100,
       description: label,
       source: 'autre',
       who: 'arthur',
       date: nextMonthDate,
       budget_month: nextMonthDate,
-    }))
+    })
   }
   if (palomaAmount > 0.01) {
-    inserts.push(supabase.from('revenues').insert({
+    await supabase.from('revenues').insert({
       amount: Math.round(palomaAmount * 100) / 100,
       description: label,
       source: 'autre',
       who: 'paloma',
       date: nextMonthDate,
       budget_month: nextMonthDate,
-    }))
+    })
   }
 
-  await Promise.all(inserts)
   revalidatePath('/')
   revalidatePath('/revenus')
   redirect(`/?month=${nextMonthStr}`)
