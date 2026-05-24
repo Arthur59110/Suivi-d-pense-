@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateSaving } from '@/lib/actions'
 import type { Saving } from '@/lib/types'
@@ -13,10 +13,6 @@ interface ExistingAccount {
 
 export default function EditSavingForm({ saving, existingAccounts }: { saving: Saving; existingAccounts: ExistingAccount[] }) {
   const router = useRouter()
-
-  useEffect(() => {
-    if (sessionStorage.getItem('epg') !== '1') router.replace('/epargne')
-  }, [router])
 
   const [type, setType] = useState<'deposit' | 'withdrawal'>(saving.type ?? 'deposit')
   const [amount, setAmount] = useState(String(saving.amount))
