@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useLayoutEffect } from 'react'
 
 const MESSAGES = [
   "Arthur, encore un café à 5 € ? C'est noté.",
@@ -24,52 +24,55 @@ const MESSAGES = [
   "Ce que Paloma dépense, Arthur le sait. Et vice versa. C'est l'amour.",
 ]
 
+function removeMask() {
+  document.getElementById('__dm__')?.remove()
+}
+
 export default function DailyMessage() {
   const [message, setMessage] = useState<string | null>(null)
-  const [visible, setVisible] = useState(false)
   const [leaving, setLeaving] = useState(false)
 
-  useEffect(() => {
+  // useLayoutEffect runs synchronously before browser paint — no flash
+  useLayoutEffect(() => {
     const seen = sessionStorage.getItem('daily-msg-seen')
-    if (seen) return
-
+    if (seen) {
+      removeMask()
+      return
+    }
     const idx = Math.floor(Math.random() * MESSAGES.length)
     setMessage(MESSAGES[idx])
-    // slight delay so the animation feels intentional
-    const t = setTimeout(() => setVisible(true), 80)
-    return () => clearTimeout(t)
+    // Mask stays until React overlay is rendered; remove it now that the
+    // overlay div will be in the DOM after this synchronous re-render.
+    removeMask()
   }, [])
 
   function dismiss() {
     setLeaving(true)
     sessionStorage.setItem('daily-msg-seen', '1')
-    setTimeout(() => setVisible(false), 350)
+    setTimeout(() => setMessage(null), 350)
   }
 
-  if (!message || !visible) return null
+  if (!message) return null
 
   return (
     <div
       onClick={dismiss}
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center px-8 bg-black"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center px-8 bg-black"
       style={{
         opacity: leaving ? 0 : 1,
-        transition: 'opacity 0.35s ease',
+        transition: leaving ? 'opacity 0.35s ease' : 'none',
       }}
     >
-      <p
-        className="text-white text-[22px] font-semibold text-center leading-snug"
+      <p className="text-white text-[22px] font-semibold text-center leading-snug"
         style={{
           opacity: leaving ? 0 : 1,
           transform: leaving ? 'translateY(8px)' : 'translateY(0)',
-          transition: 'opacity 0.3s ease, transform 0.3s ease',
+          transition: leaving ? 'opacity 0.3s ease, transform 0.3s ease' : 'none',
         }}
       >
         {message}
       </p>
-      <p className="text-[#666] text-[13px] mt-6">
-        Appuyez pour continuer
-      </p>
+      <p className="text-[#666] text-[13px] mt-6">Appuyez pour continuer</p>
     </div>
   )
 }
