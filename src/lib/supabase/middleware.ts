@@ -34,7 +34,8 @@ export async function updateSession(request: NextRequest) {
   const isPublicAsset =
     pathname === '/manifest.webmanifest' ||
     pathname.startsWith('/icon') ||
-    pathname.startsWith('/apple-icon')
+    pathname.startsWith('/apple-icon') ||
+    pathname.startsWith('/api/version')
 
   if (!user && !isLoginPath && !isPublicAsset) {
     const url = request.nextUrl.clone()
