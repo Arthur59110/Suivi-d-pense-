@@ -1,21 +1,21 @@
 export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Saving } from '@/lib/types'
-import { format, parseISO, isSameMonth, eachMonthOfInterval } from 'date-fns'
+import { format, parseISO, isSameMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
 import { Plus, Minus, PiggyBank } from 'lucide-react'
 import SavingRow from '@/components/SavingRow'
 import PinGate from '@/components/PinGate'
+import SavingsChart from '@/components/SavingsChart'
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function balance(savings: Saving[], who: 'arthur' | 'paloma') {
-  return savings
-    .filter(s => s.who === who)
-    .reduce((sum, s) => sum + (s.type === 'withdrawal' ? -s.amount : s.amount), 0)
+function fmtChange(n: number) {
+  const abs = Math.abs(n).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return n >= 0 ? `+${abs} €` : `-${abs} €`
 }
 
 export default async function EpargnePage() {
@@ -27,209 +27,231 @@ export default async function EpargnePage() {
 
   const savings: Saving[] = (data as Saving[] | null) ?? []
 
-  const arthurBalance = balance(savings, 'arthur')
-  const palomaBalance = balance(savings, 'paloma')
+  const arthurBalance = savings
+    .filter(s => s.who === 'arthur')
+    .reduce((sum, s) => sum + (s.type === 'withdrawal' ? -s.amount : s.amount), 0)
+  const palomaBalance = savings
+    .filter(s => s.who === 'paloma')
+    .reduce((sum, s) => sum + (s.type === 'withdrawal' ? -s.amount : s.amount), 0)
   const totalBalance = arthurBalance + palomaBalance
 
-  const arthurDeposits = savings.filter(s => s.who === 'arthur' && s.type === 'deposit').reduce((s, e) => s + e.amount, 0)
-  const palomaDeposits = savings.filter(s => s.who === 'paloma' && s.type === 'deposit').reduce((s, e) => s + e.amount, 0)
-  const arthurWithdrawals = savings.filter(s => s.who === 'arthur' && s.type === 'withdrawal').reduce((s, e) => s + e.amount, 0)
-  const palomaWithdrawals = savings.filter(s => s.who === 'paloma' && s.type === 'withdrawal').reduce((s, e) => s + e.amount, 0)
+  const now = new Date()
+  const monthlyChange = savings
+    .filter(s => isSameMonth(parseISO(s.date), now))
+    .reduce((sum, s) => sum + (s.type === 'withdrawal' ? -s.amount : s.amount), 0)
+  const arthurMonthlyChange = savings
+    .filter(s => s.who === 'arthur' && isSameMonth(parseISO(s.date), now))
+    .reduce((sum, s) => sum + (s.type === 'withdrawal' ? -s.amount : s.amount), 0)
+  const palomaMonthlyChange = savings
+    .filter(s => s.who === 'paloma' && isSameMonth(parseISO(s.date), now))
+    .reduce((sum, s) => sum + (s.type === 'withdrawal' ? -s.amount : s.amount), 0)
 
-  const depositSavings = savings.filter(s => s.type === 'deposit')
-  const oldestDeposit = depositSavings.length > 0 ? parseISO(depositSavings[depositSavings.length - 1].date) : new Date()
-  const newestDeposit = depositSavings.length > 0 ? parseISO(depositSavings[0].date) : new Date()
+  const showAllocation = totalBalance > 0 && arthurBalance >= 0 && palomaBalance >= 0
+  const arthurPct = showAllocation ? Math.round((arthurBalance / totalBalance) * 100) : 50
+  const palomaPct = 100 - arthurPct
 
-  const months = depositSavings.length > 0
-    ? eachMonthOfInterval({ start: oldestDeposit, end: newestDeposit }).reverse().slice(0, 6).reverse()
-    : []
+  const sortedAsc = [...savings].sort((a, b) => a.date.localeCompare(b.date))
+  let running = 0
+  const chartPoints = sortedAsc.map(s => {
+    running += s.type === 'withdrawal' ? -s.amount : s.amount
+    return { date: s.date, value: running }
+  })
 
-  const monthlyTotals = months.map(m => ({
-    label: format(m, 'MMM', { locale: fr }),
-    deposits: savings.filter(s => s.type === 'deposit' && isSameMonth(parseISO(s.date), m)).reduce((sum, s) => sum + s.amount, 0),
-    withdrawals: savings.filter(s => s.type === 'withdrawal' && isSameMonth(parseISO(s.date), m)).reduce((sum, s) => sum + s.amount, 0),
-  }))
-  const maxMonthly = Math.max(...monthlyTotals.map(m => m.deposits), 1)
+  const oldestDate = savings.length > 0 ? parseISO(savings[savings.length - 1].date) : null
 
   return (
     <PinGate>
-    <div className="flex flex-col pt-4 px-5 gap-6 pb-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-black flex items-center justify-center">
-            <PiggyBank size={20} color="white" strokeWidth={1.5} />
-          </div>
-          <h1 className="text-[28px] font-bold text-black">Épargne</h1>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href="/epargne/new?type=withdrawal"
-            className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-[#F7F7F7]"
-          >
-            <Minus size={20} color="#8A8A8A" />
-          </Link>
-          <Link
-            href="/epargne/new?type=deposit"
-            className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-black"
-          >
-            <Plus size={20} color="white" />
-          </Link>
-        </div>
-      </div>
+      <div className="flex flex-col pt-5 px-5 gap-6 pb-6">
 
-      {savings.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
-          <PiggyBank size={48} color="#E5E5E5" strokeWidth={1} />
-          <p className="text-[16px] text-[#8A8A8A]">Aucune épargne enregistrée</p>
-          <Link
-            href="/epargne/new"
-            className="mt-2 px-5 py-2.5 rounded-full bg-black text-white text-[14px] font-semibold"
-          >
-            Commencer à épargner
-          </Link>
-        </div>
-      ) : (
-        <>
-          {/* Total */}
-          <div className="rounded-[20px] bg-[#F7F7F7] p-6">
+        {/* Header */}
+        <div className="flex items-start justify-between">
+          <div>
             <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">
-              Solde total épargne
+              Épargne totale
             </p>
-            <p className="text-[52px] font-bold mt-1 leading-none tracking-[-2px]"
-              style={{ color: totalBalance < 0 ? '#C0392B' : '#000' }}>
+            <p
+              className="text-[44px] font-bold leading-none mt-1 tracking-[-1.5px]"
+              style={{ color: totalBalance < 0 ? '#C0392B' : '#000' }}
+            >
               {fmt(totalBalance)} €
             </p>
-            {depositSavings.length > 0 && (
-              <p className="text-[13px] text-[#8A8A8A] mt-2">
-                Depuis {format(oldestDeposit, 'MMMM yyyy', { locale: fr })}
+            {savings.length > 0 && monthlyChange !== 0 && (
+              <p
+                className="text-[13px] font-semibold mt-1.5"
+                style={{ color: monthlyChange >= 0 ? '#1A7A4A' : '#C0392B' }}
+              >
+                {fmtChange(monthlyChange)} ce mois
+              </p>
+            )}
+            {savings.length > 0 && monthlyChange === 0 && oldestDate && (
+              <p className="text-[12px] text-[#8A8A8A] mt-1.5">
+                Depuis {format(oldestDate, 'MMMM yyyy', { locale: fr })}
               </p>
             )}
           </div>
-
-          {/* Cards Arthur / Paloma */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Arthur */}
-            <div className="rounded-[18px] bg-[#F7F7F7] p-4 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center">
-                  <span className="text-[11px] font-bold text-white">A</span>
-                </div>
-                <p className="text-[14px] font-semibold text-black">Arthur</p>
-              </div>
-              <div>
-                <p className="text-[24px] font-bold leading-tight"
-                  style={{ color: arthurBalance < 0 ? '#C0392B' : '#000' }}>
-                  {fmt(arthurBalance)} €
-                </p>
-                <div className="flex flex-col gap-0.5 mt-1.5">
-                  <p className="text-[11px] text-[#8A8A8A]">
-                    Déposé : +{fmt(arthurDeposits)} €
-                  </p>
-                  {arthurWithdrawals > 0 && (
-                    <p className="text-[11px] text-[#C0392B]">
-                      Retiré : -{fmt(arthurWithdrawals)} €
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-1.5 mt-auto">
-                <Link
-                  href="/epargne/new?who=arthur&type=deposit"
-                  className="flex-1 h-[34px] rounded-[10px] bg-black flex items-center justify-center"
-                >
-                  <Plus size={15} color="white" />
-                </Link>
-                <Link
-                  href="/epargne/new?who=arthur&type=withdrawal"
-                  className="flex-1 h-[34px] rounded-[10px] bg-white border border-[#E5E5E5] flex items-center justify-center"
-                >
-                  <Minus size={15} color="#8A8A8A" />
-                </Link>
-              </div>
-            </div>
-
-            {/* Paloma */}
-            <div className="rounded-[18px] bg-[#F7F7F7] p-4 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-[#E5E5E5] flex items-center justify-center">
-                  <span className="text-[11px] font-bold text-black">P</span>
-                </div>
-                <p className="text-[14px] font-semibold text-black">Paloma</p>
-              </div>
-              <div>
-                <p className="text-[24px] font-bold leading-tight"
-                  style={{ color: palomaBalance < 0 ? '#C0392B' : '#000' }}>
-                  {fmt(palomaBalance)} €
-                </p>
-                <div className="flex flex-col gap-0.5 mt-1.5">
-                  <p className="text-[11px] text-[#8A8A8A]">
-                    Déposé : +{fmt(palomaDeposits)} €
-                  </p>
-                  {palomaWithdrawals > 0 && (
-                    <p className="text-[11px] text-[#C0392B]">
-                      Retiré : -{fmt(palomaWithdrawals)} €
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-1.5 mt-auto">
-                <Link
-                  href="/epargne/new?who=paloma&type=deposit"
-                  className="flex-1 h-[34px] rounded-[10px] bg-black flex items-center justify-center"
-                >
-                  <Plus size={15} color="white" />
-                </Link>
-                <Link
-                  href="/epargne/new?who=paloma&type=withdrawal"
-                  className="flex-1 h-[34px] rounded-[10px] bg-white border border-[#E5E5E5] flex items-center justify-center"
-                >
-                  <Minus size={15} color="#8A8A8A" />
-                </Link>
-              </div>
-            </div>
+          <div className="flex gap-2 mt-1">
+            <Link
+              href="/epargne/new?type=withdrawal"
+              className="w-[40px] h-[40px] rounded-full bg-[#F7F7F7] flex items-center justify-center"
+            >
+              <Minus size={18} color="#8A8A8A" />
+            </Link>
+            <Link
+              href="/epargne/new?type=deposit"
+              className="w-[40px] h-[40px] rounded-full bg-black flex items-center justify-center"
+            >
+              <Plus size={18} color="white" />
+            </Link>
           </div>
+        </div>
 
-          {/* Évolution mensuelle */}
-          {monthlyTotals.length > 1 && (
+        {savings.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
+            <PiggyBank size={48} color="#E5E5E5" strokeWidth={1} />
+            <p className="text-[16px] text-[#8A8A8A]">Aucune épargne enregistrée</p>
+            <Link
+              href="/epargne/new"
+              className="mt-2 px-5 py-2.5 rounded-full bg-black text-white text-[14px] font-semibold"
+            >
+              Commencer à épargner
+            </Link>
+          </div>
+        ) : (
+          <>
+            {/* Répartition */}
+            {showAllocation && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
+                  Répartition
+                </p>
+                <div className="h-[6px] rounded-full overflow-hidden flex">
+                  <div className="bg-black rounded-l-full" style={{ width: `${arthurPct}%` }} />
+                  <div className="bg-[#C8C8C8] rounded-r-full" style={{ width: `${palomaPct}%` }} />
+                </div>
+                <div className="flex justify-between mt-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-black" />
+                    <span className="text-[12px] text-[#8A8A8A]">Arthur — {arthurPct}%</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-[#C8C8C8]" />
+                    <span className="text-[12px] text-[#8A8A8A]">Paloma — {palomaPct}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Évolution */}
+            {chartPoints.length >= 2 && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
+                  Évolution
+                </p>
+                <SavingsChart points={chartPoints} />
+              </div>
+            )}
+
+            {/* Comptes */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
-                Dépôts par mois
+                Comptes
               </p>
-              <div className="flex items-end justify-between gap-2 h-[100px]">
-                {monthlyTotals.map((m, i) => {
-                  const height = (m.deposits / maxMonthly) * 100
-                  const isMost = m.deposits === maxMonthly && m.deposits > 0
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                      <div className="w-full flex-1 flex items-end">
-                        <div
-                          className="w-full rounded-t-[5px]"
-                          style={{ height: `${Math.max(height, 3)}%`, background: isMost ? '#000' : '#E5E5E5' }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-[#8A8A8A] capitalize">{m.label}</span>
-                    </div>
-                  )
-                })}
+              <div className="rounded-[18px] bg-[#F7F7F7] overflow-hidden">
+
+                {/* Arthur */}
+                <div className="flex items-center gap-3 px-4 py-4">
+                  <div className="w-9 h-9 rounded-full bg-black flex items-center justify-center flex-shrink-0">
+                    <span className="text-[13px] font-bold text-white">A</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-semibold text-black">Arthur</p>
+                    {arthurMonthlyChange !== 0 && (
+                      <p
+                        className="text-[12px] font-medium"
+                        style={{ color: arthurMonthlyChange >= 0 ? '#1A7A4A' : '#C0392B' }}
+                      >
+                        {fmtChange(arthurMonthlyChange)} ce mois
+                      </p>
+                    )}
+                  </div>
+                  <p
+                    className="text-[17px] font-bold flex-shrink-0"
+                    style={{ color: arthurBalance < 0 ? '#C0392B' : '#000' }}
+                  >
+                    {fmt(arthurBalance)} €
+                  </p>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <Link
+                      href="/epargne/new?who=arthur&type=deposit"
+                      className="w-[30px] h-[30px] rounded-full bg-black flex items-center justify-center"
+                    >
+                      <Plus size={13} color="white" />
+                    </Link>
+                    <Link
+                      href="/epargne/new?who=arthur&type=withdrawal"
+                      className="w-[30px] h-[30px] rounded-full bg-white border border-[#E5E5E5] flex items-center justify-center"
+                    >
+                      <Minus size={13} color="#8A8A8A" />
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="h-[1px] bg-[#ECECEC] mx-4" />
+
+                {/* Paloma */}
+                <div className="flex items-center gap-3 px-4 py-4">
+                  <div className="w-9 h-9 rounded-full bg-[#E5E5E5] flex items-center justify-center flex-shrink-0">
+                    <span className="text-[13px] font-bold text-black">P</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-semibold text-black">Paloma</p>
+                    {palomaMonthlyChange !== 0 && (
+                      <p
+                        className="text-[12px] font-medium"
+                        style={{ color: palomaMonthlyChange >= 0 ? '#1A7A4A' : '#C0392B' }}
+                      >
+                        {fmtChange(palomaMonthlyChange)} ce mois
+                      </p>
+                    )}
+                  </div>
+                  <p
+                    className="text-[17px] font-bold flex-shrink-0"
+                    style={{ color: palomaBalance < 0 ? '#C0392B' : '#000' }}
+                  >
+                    {fmt(palomaBalance)} €
+                  </p>
+                  <div className="flex gap-1.5 flex-shrink-0">
+                    <Link
+                      href="/epargne/new?who=paloma&type=deposit"
+                      className="w-[30px] h-[30px] rounded-full bg-black flex items-center justify-center"
+                    >
+                      <Plus size={13} color="white" />
+                    </Link>
+                    <Link
+                      href="/epargne/new?who=paloma&type=withdrawal"
+                      className="w-[30px] h-[30px] rounded-full bg-white border border-[#E5E5E5] flex items-center justify-center"
+                    >
+                      <Minus size={13} color="#8A8A8A" />
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Historique */}
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
-              Historique
-            </p>
+            {/* Activité récente */}
             <div>
-              {savings.map(s => (
-                <SavingRow key={s.id} saving={s} />
-              ))}
+              <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
+                Activité récente
+              </p>
+              <div>
+                {savings.slice(0, 20).map(s => (
+                  <SavingRow key={s.id} saving={s} />
+                ))}
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
     </PinGate>
   )
 }
