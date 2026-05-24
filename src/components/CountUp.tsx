@@ -15,7 +15,7 @@ export default function CountUp({
   decimals?: number
 }) {
   const [display, setDisplay] = useState(0)
-  const rafId = useRef<number>()
+  const rafId = useRef<number | undefined>(undefined)
   const startTs = useRef<number | null>(null)
   const target = Math.abs(value)
 
