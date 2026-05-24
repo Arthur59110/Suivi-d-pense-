@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from './supabase/server'
 import { getSupabaseAdmin } from './supabase/admin'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendPushTo } from './push'
 import { getWhoFromEmail, CATEGORIES } from './types'
 import {
@@ -34,7 +35,7 @@ async function notifyArthurIfPaloma(payload: { title: string; body: string; url?
       return
     }
     console.log('[push] paloma triggered, sending to arthur:', payload.title)
-    await sendPushTo('arthur', payload)
+    await sendPushTo('arthur', payload, supabase)
     console.log('[push] sent ok')
   } catch (err) {
     console.error('[push] notifyArthurIfPaloma failed:', err)
@@ -62,8 +63,8 @@ export async function unsubscribePush(endpoint: string) {
 
 export async function sendTestPush(who: 'arthur' | 'paloma'): Promise<{ ok: boolean; count?: number; error?: string }> {
   try {
-    const db = getSupabaseAdmin()
-    const { data: subs, error: selErr } = await db
+    const supabase = await getSupabaseServer()
+    const { data: subs, error: selErr } = await supabase
       .from('push_subscriptions')
       .select('id, endpoint')
       .eq('who', who)
@@ -83,7 +84,7 @@ export async function sendTestPush(who: 'arthur' | 'paloma'): Promise<{ ok: bool
       body: `C'est gagné ! (${count} appareil${count > 1 ? 's' : ''} abonné${count > 1 ? 's' : ''})`,
       url: '/profil',
       tag: 'test-' + Date.now(),
-    })
+    }, supabase)
     return { ok: true, count }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
@@ -91,8 +92,8 @@ export async function sendTestPush(who: 'arthur' | 'paloma'): Promise<{ ok: bool
 }
 
 export async function getPushStatus(who: 'arthur' | 'paloma') {
-  const db = getSupabaseAdmin()
-  const { data, error } = await db
+  const supabase = await getSupabaseServer()
+  const { data, error } = await supabase
     .from('push_subscriptions')
     .select('id, endpoint, created_at')
     .eq('who', who)

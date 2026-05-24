@@ -1,5 +1,5 @@
 import webpush from 'web-push'
-import { getSupabaseAdmin } from './supabase/admin'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 let configured = false
 function ensureConfigured() {
@@ -19,15 +19,10 @@ export interface PushPayload {
   tag?: string
 }
 
-export async function sendPushTo(who: 'arthur' | 'paloma', payload: PushPayload) {
-  try {
-    ensureConfigured()
-  } catch (e) {
-    console.error('[push] VAPID not configured:', e)
-    throw e
-  }
+// db = client Supabase avec session authentifiée (RLS to authenticated)
+export async function sendPushTo(who: 'arthur' | 'paloma', payload: PushPayload, db: SupabaseClient) {
+  ensureConfigured()
 
-  const db = getSupabaseAdmin()
   const { data: subs, error: selErr } = await db
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth')
@@ -43,7 +38,7 @@ export async function sendPushTo(who: 'arthur' | 'paloma', payload: PushPayload)
   }
   console.log(`[push] sending to ${subs.length} device(s) for "${who}"`)
 
-  const body = JSON.stringify(payload)
+  const bodyStr = JSON.stringify(payload)
   const stale: string[] = []
   let okCount = 0
 
@@ -52,13 +47,13 @@ export async function sendPushTo(who: 'arthur' | 'paloma', payload: PushPayload)
       try {
         await webpush.sendNotification(
           { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          body,
+          bodyStr,
         )
         okCount++
       } catch (err) {
         const statusCode = (err as { statusCode?: number }).statusCode
-        const body = (err as { body?: string }).body
-        console.error(`[push] send failed [${statusCode}]:`, body || err)
+        const errBody = (err as { body?: string }).body
+        console.error(`[push] send failed [${statusCode}]:`, errBody || err)
         if (statusCode === 404 || statusCode === 410) {
           stale.push(s.id)
         }
