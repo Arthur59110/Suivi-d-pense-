@@ -319,7 +319,7 @@ function MonthlyView({
             {CATEGORIES.filter(cat => budgets.has(cat.value)).map(cat => {
               const budget = budgets.get(cat.value) ?? 0
               const spent = monthExpenses
-                .filter(e => e.category === cat.value)
+                .filter(e => e.category === cat.value && !e.is_personal)
                 .reduce((s, e) => s + e.amount, 0)
               const pct = budget > 0 ? (spent / budget) * 100 : 0
               const over = pct > 100

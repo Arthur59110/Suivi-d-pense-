@@ -4,6 +4,7 @@ export interface Expense {
   description: string
   category: string
   who: 'arthur' | 'paloma'
+  is_personal: boolean
   date: string
   created_at: string
 }

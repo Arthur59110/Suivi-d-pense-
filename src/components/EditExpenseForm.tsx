@@ -10,6 +10,7 @@ import Link from 'next/link'
 export default function EditExpenseForm({ expense }: { expense: Expense }) {
   const [amount, setAmount] = useState(String(expense.amount))
   const [who, setWho] = useState<'arthur' | 'paloma'>(expense.who ?? 'arthur')
+  const [isPersonal, setIsPersonal] = useState(expense.is_personal ?? false)
   const [category, setCategory] = useState(expense.category)
   const [description, setDescription] = useState(expense.description ?? '')
   const [date, setDate] = useState(expense.date)
@@ -21,7 +22,7 @@ export default function EditExpenseForm({ expense }: { expense: Expense }) {
     const numAmount = parseFloat(amount.replace(',', '.'))
     if (!numAmount || numAmount <= 0) { setError('Montant invalide'); return }
     startTransition(async () => {
-      await updateExpense(expense.id, { amount: numAmount, description, category, who, date })
+      await updateExpense(expense.id, { amount: numAmount, description, category, who, is_personal: isPersonal, date })
     })
   }
 
@@ -46,6 +47,8 @@ export default function EditExpenseForm({ expense }: { expense: Expense }) {
           />
           <span className="text-[28px] font-bold text-[#8A8A8A]">€</span>
         </div>
+
+        {/* Who */}
         <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
           {(['arthur', 'paloma'] as const).map(w => (
             <button key={w} type="button" onClick={() => setWho(w)}
@@ -55,6 +58,30 @@ export default function EditExpenseForm({ expense }: { expense: Expense }) {
             </button>
           ))}
         </div>
+
+        {/* Commune / Personnelle */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Type</p>
+          <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
+            <button type="button" onClick={() => setIsPersonal(false)}
+              className="flex-1 py-3 rounded-[10px] text-[15px] font-semibold transition-all"
+              style={{ background: !isPersonal ? '#ffffff' : 'transparent', color: !isPersonal ? '#000000' : '#8A8A8A', boxShadow: !isPersonal ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
+              Commune
+            </button>
+            <button type="button" onClick={() => setIsPersonal(true)}
+              className="flex-1 py-3 rounded-[10px] text-[15px] font-semibold transition-all"
+              style={{ background: isPersonal ? '#ffffff' : 'transparent', color: isPersonal ? '#000000' : '#8A8A8A', boxShadow: isPersonal ? '0 2px 8px rgba(0,0,0,0.08)' : 'none' }}>
+              Personnelle
+            </button>
+          </div>
+          {isPersonal && (
+            <p className="text-[12px] text-[#8A8A8A] mt-2 px-1">
+              Cette dépense n&apos;entre pas dans l&apos;analyse commune du couple.
+            </p>
+          )}
+        </div>
+
+        {/* Category */}
         <div className="grid grid-cols-4 gap-2">
           {CATEGORIES.map(cat => (
             <button key={cat.value} type="button" onClick={() => setCategory(cat.value)}
@@ -65,6 +92,7 @@ export default function EditExpenseForm({ expense }: { expense: Expense }) {
             </button>
           ))}
         </div>
+
         <input type="text" value={description} onChange={e => setDescription(e.target.value)}
           placeholder="Description (optionnel)"
           className="rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black placeholder-[#8A8A8A] outline-none" />

@@ -16,9 +16,16 @@ export default function ExpenseRow({ expense }: Props) {
     <div className="flex items-center gap-3 py-3 border-b border-[#F0F0F0]">
       <CategoryIcon category={expense.category} />
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-medium text-black leading-tight truncate">
-          {expense.description || cat?.label || expense.category}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[15px] font-medium text-black leading-tight truncate">
+            {expense.description || cat?.label || expense.category}
+          </p>
+          {expense.is_personal && (
+            <span className="flex-shrink-0 text-[10px] font-semibold text-[#8A8A8A] bg-[#F0F0F0] px-1.5 py-0.5 rounded-[6px]">
+              Perso
+            </span>
+          )}
+        </div>
         <p className="text-[12px] text-[#8A8A8A] mt-0.5">{cat?.label}</p>
       </div>
       <div

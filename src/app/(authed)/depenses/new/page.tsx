@@ -9,6 +9,7 @@ import Link from 'next/link'
 export default function NewExpensePage() {
   const [amount, setAmount] = useState('')
   const [who, setWho] = useState<'arthur' | 'paloma'>('arthur')
+  const [isPersonal, setIsPersonal] = useState(false)
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -24,7 +25,7 @@ export default function NewExpensePage() {
 
     startTransition(async () => {
       try {
-        await createExpense({ amount: numAmount, description, category, who, date })
+        await createExpense({ amount: numAmount, description, category, who, is_personal: isPersonal, date })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes('NEXT_REDIRECT')) throw err
@@ -76,6 +77,42 @@ export default function NewExpensePage() {
               {w === 'arthur' ? 'Arthur' : 'Paloma'}
             </button>
           ))}
+        </div>
+
+        {/* Commune / Personnelle toggle */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Type</p>
+          <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
+            <button
+              type="button"
+              onClick={() => setIsPersonal(false)}
+              className="flex-1 py-3 rounded-[10px] text-[15px] font-semibold transition-all"
+              style={{
+                background: !isPersonal ? '#ffffff' : 'transparent',
+                color: !isPersonal ? '#000000' : '#8A8A8A',
+                boxShadow: !isPersonal ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              Commune
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPersonal(true)}
+              className="flex-1 py-3 rounded-[10px] text-[15px] font-semibold transition-all"
+              style={{
+                background: isPersonal ? '#ffffff' : 'transparent',
+                color: isPersonal ? '#000000' : '#8A8A8A',
+                boxShadow: isPersonal ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+              }}
+            >
+              Personnelle
+            </button>
+          </div>
+          {isPersonal && (
+            <p className="text-[12px] text-[#8A8A8A] mt-2 px-1">
+              Cette dépense n&apos;entre pas dans l&apos;analyse commune du couple.
+            </p>
+          )}
         </div>
 
         {/* Category grid */}

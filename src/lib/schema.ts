@@ -5,6 +5,7 @@ export const expenseSchema = z.object({
   description: z.string(),
   category: z.string().min(1, 'La catégorie est requise'),
   who: z.enum(['arthur', 'paloma']),
+  is_personal: z.boolean().default(false),
   date: z.string().min(1, 'La date est requise'),
 })
 
