@@ -98,7 +98,7 @@ export default async function RevenusPage({
         <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
           Personne
         </p>
-        <PersonFilter activeWho={whoFilter} />
+        <PersonFilter activeWho={whoFilter} basePath="/revenus" />
       </div>
 
       {/* Filtre par type */}

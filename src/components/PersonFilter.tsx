@@ -3,9 +3,10 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 interface Props {
   activeWho?: string
+  basePath?: string
 }
 
-export default function PersonFilter({ activeWho }: Props) {
+export default function PersonFilter({ activeWho, basePath = '/depenses' }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -13,7 +14,7 @@ export default function PersonFilter({ activeWho }: Props) {
     const params = new URLSearchParams(searchParams.toString())
     if (value === 'all') params.delete('who')
     else params.set('who', value)
-    router.push(`/depenses?${params.toString()}`)
+    router.push(`${basePath}?${params.toString()}`)
   }
 
   const current = activeWho === 'arthur' || activeWho === 'paloma' ? activeWho : 'all'
