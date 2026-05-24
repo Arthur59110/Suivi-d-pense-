@@ -160,7 +160,52 @@ export async function deleteSaving(id: string) {
   revalidatePath('/epargne')
 }
 
-export async function setBudget(category: string, amount: number) {
+export async function reportBalance(
+  currentMonthStr: string,
+  arthurAmount: number,
+  palomaAmount: number,
+) {
+  const [y, m] = currentMonthStr.split('-').map(Number)
+  const nextY = m === 12 ? y + 1 : y
+  const nextM = m === 12 ? 1 : m + 1
+  const nextMonthStr = `${nextY}-${String(nextM).padStart(2, '0')}`
+  const nextMonthDate = `${nextMonthStr}-01`
+
+  const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  const label = `Report ${monthNames[m - 1]} ${y}`
+
+  const supabase = await getSupabaseServer()
+  const inserts: Promise<unknown>[] = []
+
+  if (arthurAmount > 0.01) {
+    inserts.push(supabase.from('revenues').insert({
+      amount: Math.round(arthurAmount * 100) / 100,
+      description: label,
+      source: 'autre',
+      who: 'arthur',
+      date: nextMonthDate,
+      budget_month: nextMonthDate,
+    }))
+  }
+  if (palomaAmount > 0.01) {
+    inserts.push(supabase.from('revenues').insert({
+      amount: Math.round(palomaAmount * 100) / 100,
+      description: label,
+      source: 'autre',
+      who: 'paloma',
+      date: nextMonthDate,
+      budget_month: nextMonthDate,
+    }))
+  }
+
+  await Promise.all(inserts)
+  revalidatePath('/')
+  revalidatePath('/revenus')
+  redirect(`/?month=${nextMonthStr}`)
+}
+
+
   const supabase = await getSupabaseServer()
   if (amount <= 0) {
     const { error } = await supabase.from('budgets').delete().eq('category', category)

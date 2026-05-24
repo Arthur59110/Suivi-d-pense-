@@ -9,6 +9,7 @@ import ExpenseRow from '@/components/ExpenseRow'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import CountUp from '@/components/CountUp'
 import AnimatedBar from '@/components/AnimatedBar'
+import ReportBalanceButton from '@/components/ReportBalanceButton'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { ChevronRight, PiggyBank } from 'lucide-react'
@@ -64,6 +65,17 @@ export default async function DashboardPage({
 
   const recent = expenses.slice(0, 5)
 
+  // Montants à reporter : chacun prend sa part positive, capped au solde total
+  const arthurReport = Math.min(Math.max(arthurNet, 0), balance)
+  const palomaReport = balance - arthurReport
+
+  // Label du mois suivant
+  const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  const nextM = month === 12 ? 1 : month + 1
+  const nextY = month === 12 ? year + 1 : year
+  const nextMonthLabel = `${monthNames[nextM - 1]} ${nextY}`
+
   function f(n: number) {
     return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
@@ -94,6 +106,18 @@ export default async function DashboardPage({
           {balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
         </p>
       </div>
+
+      {/* Reporter le solde */}
+      {balance > 0 && (
+        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
+          <ReportBalanceButton
+            currentMonth={monthStr}
+            arthurAmount={arthurReport}
+            palomaAmount={palomaReport}
+            nextMonthLabel={nextMonthLabel}
+          />
+        </div>
+      )}
 
       {/* Revenus / Dépenses / Épargne */}
       <div className="grid grid-cols-3 gap-2 animate-slide-up" style={{ animationDelay: '140ms' }}>
