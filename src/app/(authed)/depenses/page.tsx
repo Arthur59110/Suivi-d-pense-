@@ -7,6 +7,7 @@ import CategoryFilter from '@/components/CategoryFilter'
 import ExpenseRow from '@/components/ExpenseRow'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
+import PageSwitcher from '@/components/PageSwitcher'
 import { format, parseISO, isToday, isYesterday, isThisWeek, isThisYear, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -64,7 +65,7 @@ export default async function DepensesPage({
     <div className="flex flex-col pt-6 gap-5">
       {/* Header */}
       <div className="px-5 flex items-center justify-between">
-        <h1 className="text-[28px] font-bold text-black">Dépenses</h1>
+        <PageSwitcher current="depenses" />
         <Link
           href="/ajouter"
           className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-black"
