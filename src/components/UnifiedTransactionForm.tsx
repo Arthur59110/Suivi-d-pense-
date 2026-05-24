@@ -297,8 +297,7 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
         {error && <p className="text-[13px] text-red-500 animate-fade-in">{error}</p>}
 
         <button type="submit" disabled={isPending}
-          className="mt-auto h-[56px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40 transition-transform active:scale-[0.97] duration-100"
-          className="mt-auto h-[56px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40">
+          className="mt-auto h-[56px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40 transition-transform active:scale-[0.97] duration-100">
           {isPending ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </form>
