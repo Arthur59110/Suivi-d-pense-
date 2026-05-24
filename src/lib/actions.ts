@@ -160,6 +160,15 @@ export async function deleteSaving(id: string) {
   revalidatePath('/epargne')
 }
 
+export async function cancelReport(revenueIds: string[]) {
+  if (revenueIds.length === 0) return
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase.from('revenues').delete().in('id', revenueIds)
+  if (error) throw new Error(friendlyError(error.message))
+  revalidatePath('/')
+  revalidatePath('/revenus')
+}
+
 export async function reportBalance(
   currentMonthStr: string,
   arthurAmount: number,
