@@ -27,6 +27,7 @@ export const savingSchema = z.object({
   description: z.string(),
   who: z.enum(['arthur', 'paloma']),
   type: z.enum(['deposit', 'withdrawal']).default('deposit'),
+  account_name: z.string().min(1, 'Le nom du compte est requis'),
   date: z.string().min(1, 'La date est requise'),
 })
 

@@ -24,10 +24,12 @@ export default function SavingRow({ saving }: { saving: Saving }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-[15px] font-medium text-black leading-tight truncate">
-          {saving.description || (isWithdrawal ? 'Retrait épargne' : 'Épargne')}
+          {saving.account_name || (isWithdrawal ? 'Retrait' : 'Épargne')}
         </p>
-        <p className="text-[12px] text-[#8A8A8A] mt-0.5">
-          {format(parseISO(saving.date), 'd MMM yyyy', { locale: fr })}
+        <p className="text-[12px] text-[#8A8A8A] mt-0.5 truncate">
+          {saving.description
+            ? saving.description
+            : format(parseISO(saving.date), 'd MMM yyyy', { locale: fr })}
         </p>
       </div>
       <div

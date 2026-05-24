@@ -6,7 +6,12 @@ import type { Saving } from '@/lib/types'
 import { ChevronLeft, ArrowDown, ArrowUp } from 'lucide-react'
 import Link from 'next/link'
 
-export default function EditSavingForm({ saving }: { saving: Saving }) {
+interface ExistingAccount {
+  who: 'arthur' | 'paloma'
+  account_name: string
+}
+
+export default function EditSavingForm({ saving, existingAccounts }: { saving: Saving; existingAccounts: ExistingAccount[] }) {
   const router = useRouter()
 
   useEffect(() => {
@@ -16,21 +21,24 @@ export default function EditSavingForm({ saving }: { saving: Saving }) {
   const [type, setType] = useState<'deposit' | 'withdrawal'>(saving.type ?? 'deposit')
   const [amount, setAmount] = useState(String(saving.amount))
   const [who, setWho] = useState<'arthur' | 'paloma'>(saving.who ?? 'arthur')
+  const [accountName, setAccountName] = useState(saving.account_name ?? '')
   const [description, setDescription] = useState(saving.description ?? '')
   const [date, setDate] = useState(saving.date)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const isWithdrawal = type === 'withdrawal'
+  const suggestions = existingAccounts.filter(a => a.who === who).map(a => a.account_name)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     const numAmount = parseFloat(amount.replace(',', '.'))
     if (!numAmount || numAmount <= 0) { setError('Montant invalide'); return }
+    if (!accountName.trim()) { setError('Nom du compte requis'); return }
     startTransition(async () => {
       try {
-        await updateSaving(saving.id, { amount: numAmount, description, who, type, date })
+        await updateSaving(saving.id, { amount: numAmount, description, who, type, account_name: accountName.trim(), date })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes('NEXT_REDIRECT')) throw err
@@ -73,7 +81,7 @@ export default function EditSavingForm({ saving }: { saving: Saving }) {
         {/* Who */}
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
-            {isWithdrawal ? "De l'épargne de" : 'Retiré du revenu de'}
+            {isWithdrawal ? "De l'épargne de" : 'Pour'}
           </p>
           <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex">
             {(['arthur', 'paloma'] as const).map(w => (
@@ -84,25 +92,48 @@ export default function EditSavingForm({ saving }: { saving: Saving }) {
               </button>
             ))}
           </div>
-          <div className="flex items-start gap-2 mt-2 px-1">
-            {isWithdrawal
-              ? <ArrowUp size={13} color="#8A8A8A" className="mt-0.5 flex-shrink-0" />
-              : <ArrowDown size={13} color="#8A8A8A" className="mt-0.5 flex-shrink-0" />
-            }
-            <p className="text-[12px] text-[#8A8A8A] leading-snug">
-              {isWithdrawal
-                ? `Retiré du solde d'épargne de ${who === 'arthur' ? 'Arthur' : 'Paloma'}.`
-                : `Déduit du salaire de ${who === 'arthur' ? 'Arthur' : 'Paloma'} sur le mois choisi.`
-              }
-            </p>
-          </div>
         </div>
 
+        {/* Account name */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Compte</p>
+          <input
+            list="accounts-datalist"
+            value={accountName}
+            onChange={e => setAccountName(e.target.value)}
+            placeholder="Ex. PEA, PEL, Livret A…"
+            className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black placeholder-[#8A8A8A] outline-none"
+          />
+          <datalist id="accounts-datalist">
+            {suggestions.map((name, i) => <option key={i} value={name} />)}
+          </datalist>
+        </div>
+
+        {/* Description */}
         <input type="text" value={description} onChange={e => setDescription(e.target.value)}
           placeholder="Description (optionnel)"
           className="rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black placeholder-[#8A8A8A] outline-none" />
-        <input type="date" value={date} onChange={e => setDate(e.target.value)}
-          className="rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
+
+        {/* Date */}
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Date</p>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)}
+            className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
+        </div>
+
+        <div className="flex items-start gap-2 px-1">
+          {isWithdrawal
+            ? <ArrowUp size={13} color="#8A8A8A" className="mt-0.5 flex-shrink-0" />
+            : <ArrowDown size={13} color="#8A8A8A" className="mt-0.5 flex-shrink-0" />
+          }
+          <p className="text-[12px] text-[#8A8A8A] leading-snug">
+            {isWithdrawal
+              ? `Retiré du compte "${accountName || '...'}" de ${who === 'arthur' ? 'Arthur' : 'Paloma'}.`
+              : `Ajouté au compte "${accountName || '...'}" de ${who === 'arthur' ? 'Arthur' : 'Paloma'}.`
+            }
+          </p>
+        </div>
+
         {error && <p className="text-[13px] text-red-500">{error}</p>}
         <button type="submit" disabled={isPending}
           className="mt-auto h-[56px] rounded-[14px] text-white text-[16px] font-semibold disabled:opacity-40"

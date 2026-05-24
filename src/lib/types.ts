@@ -60,6 +60,7 @@ export interface Saving {
   description: string
   who: 'arthur' | 'paloma'
   type: 'deposit' | 'withdrawal'
+  account_name: string
   date: string
   created_at: string
 }
