@@ -9,7 +9,6 @@ import ExpenseRow from '@/components/ExpenseRow'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import CountUp from '@/components/CountUp'
 import AnimatedBar from '@/components/AnimatedBar'
-import ReportBalanceButton from '@/components/ReportBalanceButton'
 import CancelReportButton from '@/components/CancelReportButton'
 import { Suspense } from 'react'
 import Link from 'next/link'
@@ -69,15 +68,6 @@ export default async function DashboardPage({
   const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
 
-  // Reporter : uniquement si on est sur le mois en cours
-  const todayStr = format(now, 'yyyy-MM')
-  const isCurrentMonth = monthStr === todayStr
-  const arthurReport = Math.min(Math.max(arthurNet, 0), balance)
-  const palomaReport = balance - arthurReport
-  const nextM = month === 12 ? 1 : month + 1
-  const nextY = month === 12 ? year + 1 : year
-  const nextMonthLabel = `${monthNames[nextM - 1]} ${nextY}`
-
   // Annuler : revenus de report présents dans le mois affiché
   const reportRevenues = revenues.filter(r => r.description?.startsWith('Report '))
   const reportLabel = reportRevenues.length > 0
@@ -114,18 +104,6 @@ export default async function DashboardPage({
           {balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
         </p>
       </div>
-
-      {/* Reporter le solde — mois en cours uniquement */}
-      {isCurrentMonth && balance > 0 && (
-        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
-          <ReportBalanceButton
-            currentMonth={monthStr}
-            arthurAmount={arthurReport}
-            palomaAmount={palomaReport}
-            nextMonthLabel={nextMonthLabel}
-          />
-        </div>
-      )}
 
       {/* Annuler un report existant dans le mois affiché */}
       {reportRevenues.length > 0 && (
