@@ -2,6 +2,9 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from './supabase/server'
+import { getSupabaseAdmin } from './supabase/admin'
+import { sendPushTo } from './push'
+import { getWhoFromEmail, CATEGORIES } from './types'
 import {
   expenseSchema,
   revenueSchema,
@@ -11,6 +14,36 @@ import {
   type RevenueFormValues,
   type SavingFormValues,
 } from './schema'
+
+function fmtAmount(n: number) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// Notifie Arthur uniquement quand Paloma est l'auteure de l'action
+async function notifyArthurIfPaloma(payload: { title: string; body: string; url?: string }) {
+  try {
+    const supabase = await getSupabaseServer()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.email) return
+    if (getWhoFromEmail(user.email) !== 'paloma') return
+    await sendPushTo('arthur', payload)
+  } catch {
+    // ne jamais bloquer l'action principale
+  }
+}
+
+export async function subscribePush(sub: { endpoint: string; p256dh: string; auth: string; who: 'arthur' | 'paloma' }) {
+  const db = getSupabaseAdmin()
+  const { error } = await db.from('push_subscriptions').upsert({
+    endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, who: sub.who,
+  }, { onConflict: 'endpoint' })
+  if (error) throw new Error(error.message)
+}
+
+export async function unsubscribePush(endpoint: string) {
+  const db = getSupabaseAdmin()
+  await db.from('push_subscriptions').delete().eq('endpoint', endpoint)
+}
 
 function friendlyError(raw: string): string {
   const m = raw.toLowerCase()
@@ -38,6 +71,12 @@ export async function createExpense(data: ExpenseFormValues) {
   const supabase = await getSupabaseServer()
   const { error } = await supabase.from('expenses').insert(parsed.data)
   if (error) throw new Error(friendlyError(error.message))
+  const catLabel = CATEGORIES.find(c => c.value === parsed.data.category)?.label ?? parsed.data.category
+  await notifyArthurIfPaloma({
+    title: 'Paloma a ajouté une dépense',
+    body: `${parsed.data.description || catLabel} · ${fmtAmount(parsed.data.amount)} €`,
+    url: '/depenses',
+  })
   revalidatePath('/')
   revalidatePath('/depenses')
   redirect('/')
@@ -94,6 +133,12 @@ export async function createRevenueFromSavings(
   if (r1.error) throw new Error(friendlyError(r1.error.message))
   if (r2.error) throw new Error(friendlyError(r2.error.message))
 
+  await notifyArthurIfPaloma({
+    title: 'Paloma a pioché dans l\'épargne',
+    body: `${savingsAccountName} · -${fmtAmount(revenueData.amount)} €`,
+    url: '/epargne',
+  })
+
   revalidatePath('/')
   revalidatePath('/revenus')
   revalidatePath('/epargne')
@@ -106,6 +151,11 @@ export async function createRevenue(data: RevenueFormValues) {
   const supabase = await getSupabaseServer()
   const { error } = await supabase.from('revenues').insert(parsed.data)
   if (error) throw new Error(friendlyError(error.message))
+  await notifyArthurIfPaloma({
+    title: 'Paloma a ajouté un revenu',
+    body: `${parsed.data.description || 'Revenu'} · +${fmtAmount(parsed.data.amount)} €`,
+    url: '/revenus',
+  })
   revalidatePath('/')
   revalidatePath('/revenus')
   redirect('/')
@@ -136,6 +186,12 @@ export async function createSaving(data: SavingFormValues) {
   const supabase = await getSupabaseServer()
   const { error } = await supabase.from('savings').insert(parsed.data)
   if (error) throw new Error(friendlyError(error.message))
+  const isWithdrawal = parsed.data.type === 'withdrawal'
+  await notifyArthurIfPaloma({
+    title: isWithdrawal ? 'Paloma a fait un retrait' : 'Paloma a mis de côté',
+    body: `${parsed.data.account_name} · ${isWithdrawal ? '-' : '+'}${fmtAmount(parsed.data.amount)} €`,
+    url: '/epargne',
+  })
   revalidatePath('/')
   revalidatePath('/epargne')
   redirect('/epargne')

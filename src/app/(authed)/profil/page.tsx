@@ -1,8 +1,9 @@
 export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
-import { getUserName } from '@/lib/types'
+import { getUserName, getWhoFromEmail } from '@/lib/types'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import LogoutButton from '@/components/LogoutButton'
+import NotificationToggle from '@/components/NotificationToggle'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Settings2, PiggyBank, BarChart3, Mail } from 'lucide-react'
 
@@ -13,6 +14,7 @@ export default async function ProfilPage() {
   const email = user?.email ?? ''
   const firstName = getUserName(email)
   const isArthur = firstName === 'Arthur'
+  const who = getWhoFromEmail(email)
 
   return (
     <div className="flex flex-col px-5 pt-4 gap-6">
@@ -65,6 +67,16 @@ export default async function ProfilPage() {
           </Link>
         </div>
       </div>
+
+      {/* Notifications */}
+      {isArthur && (
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
+            Notifications
+          </p>
+          <NotificationToggle who={who} />
+        </div>
+      )}
 
       {/* Déconnexion */}
       <div className="mt-2">

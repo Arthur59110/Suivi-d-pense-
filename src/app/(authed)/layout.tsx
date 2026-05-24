@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import PullToRefresh from '@/components/PullToRefresh'
 import UpdatePrompt from '@/components/UpdatePrompt'
 import DailyMessage from '@/components/DailyMessage'
+import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 
 export default async function AuthedLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServer()
@@ -14,6 +15,7 @@ export default async function AuthedLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen bg-white safe-top">
+      <ServiceWorkerRegister />
       <DailyMessage />
       <UpdatePrompt />
       <PullToRefresh>
