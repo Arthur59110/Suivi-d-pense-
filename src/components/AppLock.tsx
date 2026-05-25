@@ -39,6 +39,20 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  // Déclenche Face ID automatiquement quand l'écran de verrou apparaît
+  useEffect(() => {
+    if (screen !== 'face-id') return
+    const t = setTimeout(async () => {
+      setScreen('verifying')
+      const ok = await verifyBiometric()
+      if (ok) { unlock(); return }
+      setScreen('face-id')
+      // Pas d'erreur au premier échec auto — l'utilisateur peut retapper
+    }, 200)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // intentionnellement vide : uniquement au montage initial
+
   // Re-verrouillage en arrière-plan
   useEffect(() => {
     function onVisibilityChange() {
