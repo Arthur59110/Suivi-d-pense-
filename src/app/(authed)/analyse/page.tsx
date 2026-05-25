@@ -592,25 +592,37 @@ function YearlyView({
         <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
           Dépenses par mois
         </p>
-        <div className="flex items-end justify-between gap-1 h-[140px]">
-          {monthlyTotals.map((m, i) => {
-            const height = maxMonthly > 0 ? (m.expenses / maxMonthly) * 100 : 0
-            const isHeaviest = m.expenses === heaviestMonth.expenses && m.expenses > 0
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-                <div className="w-full flex-1 flex items-end">
+        <div className="rounded-[20px] bg-[#F7F7F7] px-4 pt-3 pb-4">
+          <div className="flex items-end gap-1" style={{ height: 160 }}>
+            {monthlyTotals.map((m, i) => {
+              const height = maxMonthly > 0 ? (m.expenses / maxMonthly) * 100 : 0
+              const isHeaviest = m.expenses === heaviestMonth.expenses && m.expenses > 0
+              const periodParam = format(m.date, 'yyyy-MM')
+              return (
+                <Link
+                  key={i}
+                  href={`/analyse?view=mois&period=${periodParam}`}
+                  className="flex-1 flex flex-col items-center justify-end gap-1.5"
+                  style={{ height: '100%' }}
+                >
+                  <span className="text-[9px] font-semibold" style={{ color: isHeaviest ? '#000' : '#8A8A8A' }}>
+                    {m.expenses > 0 ? `${formatShort(m.expenses)}` : ''}
+                  </span>
                   <div
-                    className="w-full rounded-t-[4px] transition-all"
+                    className="w-full"
                     style={{
-                      height: `${Math.max(height, 2)}%`,
-                      background: isHeaviest ? '#000000' : '#E5E5E5',
+                      height: `${Math.max(height, 3)}%`,
+                      background: isHeaviest ? '#000000' : '#D4D4D4',
+                      borderRadius: '4px 4px 2px 2px',
                     }}
                   />
-                </div>
-                <span className="text-[9px] text-[#8A8A8A] capitalize">{m.label[0]}</span>
-              </div>
-            )
-          })}
+                  <span className="text-[9px] font-semibold capitalize" style={{ color: isHeaviest ? '#000' : '#8A8A8A' }}>
+                    {m.label[0]}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </div>
 
