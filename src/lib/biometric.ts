@@ -3,16 +3,21 @@ const EMAIL_KEY    = 'su_biometric_email'
 const NAME_KEY     = 'su_biometric_name'
 const UNLOCKED_KEY = 'su_session_unlocked'
 const HIDDEN_KEY   = 'su_hidden_at'
+const PIN_KEY      = 'su_pin_hash'
 const RELOCK_MS    = 5 * 60 * 1000
 
+// ── Infos utilisateur ────────────────────────────────────
 export function getBiometricEmail(): string { return localStorage.getItem(EMAIL_KEY) ?? '' }
 export function getBiometricName(): string  { return localStorage.getItem(NAME_KEY)  ?? '' }
-export function isBiometricEnrolled(): boolean { return !!localStorage.getItem(CRED_KEY) }
-
 export function setUserInfo(email: string, name: string) {
   localStorage.setItem(EMAIL_KEY, email)
   localStorage.setItem(NAME_KEY, name)
 }
+
+// ── État de verrouillage ─────────────────────────────────
+export function isBiometricEnrolled(): boolean { return !!localStorage.getItem(CRED_KEY) }
+export function isPinEnrolled(): boolean        { return !!localStorage.getItem(PIN_KEY) }
+export function isLockEnabled(): boolean        { return isBiometricEnrolled() || isPinEnrolled() }
 
 export function isSessionUnlocked(): boolean {
   return sessionStorage.getItem(UNLOCKED_KEY) === '1'
@@ -32,6 +37,24 @@ export function shouldRelockAfterBackground(): boolean {
   return ts > 0 && Date.now() - ts > RELOCK_MS
 }
 
+// ── PIN 6 chiffres ───────────────────────────────────────
+async function hashPin(pin: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + '_su_salt'))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+export async function setPin(pin: string): Promise<void> {
+  localStorage.setItem(PIN_KEY, await hashPin(pin))
+}
+export async function verifyPin(pin: string): Promise<boolean> {
+  const stored = localStorage.getItem(PIN_KEY)
+  if (!stored) return false
+  return (await hashPin(pin)) === stored
+}
+export function clearPin() {
+  localStorage.removeItem(PIN_KEY)
+}
+
+// ── Biométrie (WebAuthn) ─────────────────────────────────
 export function clearBiometric() {
   localStorage.removeItem(CRED_KEY)
 }
