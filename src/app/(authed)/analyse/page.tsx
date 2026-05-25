@@ -35,10 +35,12 @@ function formatShort(n: number) {
 export default async function AnalysePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; period?: string }>
+  searchParams: Promise<{ view?: string; period?: string; split?: string }>
 }) {
-  const { view: viewParam, period } = await searchParams
+  const { view: viewParam, period, split: splitParam } = await searchParams
   const view: 'mois' | 'annee' = viewParam === 'annee' ? 'annee' : 'mois'
+  const split: 'all' | 'commune' | 'perso' =
+    splitParam === 'commune' ? 'commune' : splitParam === 'perso' ? 'perso' : 'all'
   const supabase = await getSupabaseServer()
 
   const now = new Date()
@@ -93,6 +95,8 @@ export default async function AnalysePage({
           revenues={allRevenues}
           savings={allSavings}
           budgets={budgetMap}
+          split={split}
+          period={period}
         />
       ) : (
         <YearlyView
@@ -100,6 +104,8 @@ export default async function AnalysePage({
           expenses={allExpenses}
           revenues={allRevenues}
           savings={allSavings}
+          split={split}
+          period={period}
         />
       )}
     </div>
@@ -112,12 +118,16 @@ function MonthlyView({
   revenues,
   savings,
   budgets,
+  split,
+  period,
 }: {
   referenceDate: Date
   expenses: Expense[]
   revenues: Revenue[]
   savings: Saving[]
   budgets: Map<string, number>
+  split: 'all' | 'commune' | 'perso'
+  period?: string
 }) {
   const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate))
   const monthRevenues = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate))
@@ -149,10 +159,15 @@ function MonthlyView({
     .filter(c => c.total > 0)
     .sort((a, b) => b.total - a.total)
 
-  const arthurTotal = monthExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
-  const palomaTotal = monthExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
-  const arthurPct = totalExpenses > 0 ? (arthurTotal / totalExpenses) * 100 : 0
-  const palomaPct = totalExpenses > 0 ? (palomaTotal / totalExpenses) * 100 : 50
+  const splitExpenses =
+    split === 'commune' ? monthExpenses.filter(e => !e.is_personal)
+    : split === 'perso' ? monthExpenses.filter(e => e.is_personal)
+    : monthExpenses
+  const splitTotal = splitExpenses.reduce((s, e) => s + e.amount, 0)
+  const arthurTotal = splitExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
+  const palomaTotal = splitExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
+  const arthurPct = splitTotal > 0 ? (arthurTotal / splitTotal) * 100 : 0
+  const palomaPct = splitTotal > 0 ? (palomaTotal / splitTotal) * 100 : 50
 
   const topExpenses = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 3)
 
@@ -255,40 +270,69 @@ function MonthlyView({
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Répartition</p>
           <div className="rounded-[16px] bg-[#F7F7F7] p-4">
-            <div className="flex items-center gap-2 h-10 rounded-[10px] overflow-hidden">
-              <div
-                className="h-full bg-black flex items-center justify-center"
-                style={{ width: `${Math.max(arthurPct, 4)}%`, minWidth: arthurPct > 0 ? 30 : 0 }}
-              >
-                {arthurPct >= 15 && (
-                  <span className="text-[11px] font-semibold text-white">{Math.round(arthurPct)}%</span>
-                )}
-              </div>
-              <div
-                className="h-full bg-[#D4D4D4] flex items-center justify-center"
-                style={{ width: `${Math.max(palomaPct, 4)}%`, minWidth: palomaPct > 0 ? 30 : 0 }}
-              >
-                {palomaPct >= 15 && (
-                  <span className="text-[11px] font-semibold text-black">{Math.round(palomaPct)}%</span>
-                )}
-              </div>
+            <div className="rounded-[10px] bg-white p-1 flex gap-1 mb-4">
+              {([
+                { val: 'all', label: 'Toutes' },
+                { val: 'commune', label: 'Communes' },
+                { val: 'perso', label: 'Perso.' },
+              ] as const).map(({ val, label }) => {
+                const active = split === val
+                const params = new URLSearchParams()
+                params.set('view', 'mois')
+                if (period) params.set('period', period)
+                if (val !== 'all') params.set('split', val)
+                return (
+                  <Link key={val} href={`/analyse?${params}`}
+                    className="flex-1 py-2 rounded-[8px] text-[12px] font-semibold text-center transition-all"
+                    style={{
+                      background: active ? '#000' : 'transparent',
+                      color: active ? '#fff' : '#8A8A8A',
+                    }}>
+                    {label}
+                  </Link>
+                )
+              })}
             </div>
-            <div className="flex justify-between mt-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-black" />
-                  <p className="text-[12px] text-[#8A8A8A]">Arthur</p>
+            {splitTotal > 0 ? (
+              <>
+                <div className="flex items-center gap-2 h-10 rounded-[10px] overflow-hidden">
+                  <div
+                    className="h-full bg-black flex items-center justify-center"
+                    style={{ width: `${Math.max(arthurPct, 4)}%`, minWidth: arthurPct > 0 ? 30 : 0 }}
+                  >
+                    {arthurPct >= 15 && (
+                      <span className="text-[11px] font-semibold text-white">{Math.round(arthurPct)}%</span>
+                    )}
+                  </div>
+                  <div
+                    className="h-full bg-[#D4D4D4] flex items-center justify-center"
+                    style={{ width: `${Math.max(palomaPct, 4)}%`, minWidth: palomaPct > 0 ? 30 : 0 }}
+                  >
+                    {palomaPct >= 15 && (
+                      <span className="text-[11px] font-semibold text-black">{Math.round(palomaPct)}%</span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[16px] font-bold text-black mt-1">{formatAmount(arthurTotal)} €</p>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-2 justify-end">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#D4D4D4]" />
-                  <p className="text-[12px] text-[#8A8A8A]">Paloma</p>
+                <div className="flex justify-between mt-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-black" />
+                      <p className="text-[12px] text-[#8A8A8A]">Arthur</p>
+                    </div>
+                    <p className="text-[16px] font-bold text-black mt-1">{formatAmount(arthurTotal)} €</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#D4D4D4]" />
+                      <p className="text-[12px] text-[#8A8A8A]">Paloma</p>
+                    </div>
+                    <p className="text-[16px] font-bold text-black mt-1">{formatAmount(palomaTotal)} €</p>
+                  </div>
                 </div>
-                <p className="text-[16px] font-bold text-black mt-1">{formatAmount(palomaTotal)} €</p>
-              </div>
-            </div>
+              </>
+            ) : (
+              <p className="text-[13px] text-[#8A8A8A] text-center py-2">Aucune dépense dans cette catégorie</p>
+            )}
           </div>
         </div>
       )}
@@ -436,11 +480,15 @@ function YearlyView({
   expenses,
   revenues,
   savings,
+  split,
+  period,
 }: {
   referenceDate: Date
   expenses: Expense[]
   revenues: Revenue[]
   savings: Saving[]
+  split: 'all' | 'commune' | 'perso'
+  period?: string
 }) {
   const yearExpenses = expenses.filter(e => isSameYear(parseISO(e.date), referenceDate))
   const yearRevenues = revenues.filter(r => isSameYear(parseISO(r.date), referenceDate))
@@ -477,10 +525,15 @@ function YearlyView({
     .filter(c => c.total > 0)
     .sort((a, b) => b.total - a.total)
 
-  const arthurTotal = yearExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
-  const palomaTotal = yearExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
-  const arthurPct = totalExpenses > 0 ? (arthurTotal / totalExpenses) * 100 : 0
-  const palomaPct = totalExpenses > 0 ? (palomaTotal / totalExpenses) * 100 : 50
+  const splitExpenses =
+    split === 'commune' ? yearExpenses.filter(e => !e.is_personal)
+    : split === 'perso' ? yearExpenses.filter(e => e.is_personal)
+    : yearExpenses
+  const splitTotal = splitExpenses.reduce((s, e) => s + e.amount, 0)
+  const arthurTotal = splitExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
+  const palomaTotal = splitExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
+  const arthurPct = splitTotal > 0 ? (arthurTotal / splitTotal) * 100 : 0
+  const palomaPct = splitTotal > 0 ? (palomaTotal / splitTotal) * 100 : 50
 
   if (yearExpenses.length === 0 && yearRevenues.length === 0 && yearSavings.length === 0) {
     return (
@@ -566,40 +619,69 @@ function YearlyView({
             Répartition annuelle
           </p>
           <div className="rounded-[16px] bg-[#F7F7F7] p-4">
-            <div className="flex items-center gap-2 h-10 rounded-[10px] overflow-hidden">
-              <div
-                className="h-full bg-black flex items-center justify-center"
-                style={{ width: `${Math.max(arthurPct, 4)}%`, minWidth: arthurPct > 0 ? 30 : 0 }}
-              >
-                {arthurPct >= 15 && (
-                  <span className="text-[11px] font-semibold text-white">{Math.round(arthurPct)}%</span>
-                )}
-              </div>
-              <div
-                className="h-full bg-[#D4D4D4] flex items-center justify-center"
-                style={{ width: `${Math.max(palomaPct, 4)}%`, minWidth: palomaPct > 0 ? 30 : 0 }}
-              >
-                {palomaPct >= 15 && (
-                  <span className="text-[11px] font-semibold text-black">{Math.round(palomaPct)}%</span>
-                )}
-              </div>
+            <div className="rounded-[10px] bg-white p-1 flex gap-1 mb-4">
+              {([
+                { val: 'all', label: 'Toutes' },
+                { val: 'commune', label: 'Communes' },
+                { val: 'perso', label: 'Perso.' },
+              ] as const).map(({ val, label }) => {
+                const active = split === val
+                const params = new URLSearchParams()
+                params.set('view', 'annee')
+                if (period) params.set('period', period)
+                if (val !== 'all') params.set('split', val)
+                return (
+                  <Link key={val} href={`/analyse?${params}`}
+                    className="flex-1 py-2 rounded-[8px] text-[12px] font-semibold text-center transition-all"
+                    style={{
+                      background: active ? '#000' : 'transparent',
+                      color: active ? '#fff' : '#8A8A8A',
+                    }}>
+                    {label}
+                  </Link>
+                )
+              })}
             </div>
-            <div className="flex justify-between mt-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-black" />
-                  <p className="text-[12px] text-[#8A8A8A]">Arthur</p>
+            {splitTotal > 0 ? (
+              <>
+                <div className="flex items-center gap-2 h-10 rounded-[10px] overflow-hidden">
+                  <div
+                    className="h-full bg-black flex items-center justify-center"
+                    style={{ width: `${Math.max(arthurPct, 4)}%`, minWidth: arthurPct > 0 ? 30 : 0 }}
+                  >
+                    {arthurPct >= 15 && (
+                      <span className="text-[11px] font-semibold text-white">{Math.round(arthurPct)}%</span>
+                    )}
+                  </div>
+                  <div
+                    className="h-full bg-[#D4D4D4] flex items-center justify-center"
+                    style={{ width: `${Math.max(palomaPct, 4)}%`, minWidth: palomaPct > 0 ? 30 : 0 }}
+                  >
+                    {palomaPct >= 15 && (
+                      <span className="text-[11px] font-semibold text-black">{Math.round(palomaPct)}%</span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[16px] font-bold text-black mt-1">{formatAmount(arthurTotal)} €</p>
-              </div>
-              <div className="text-right">
-                <div className="flex items-center gap-2 justify-end">
-                  <div className="w-2.5 h-2.5 rounded-full bg-[#D4D4D4]" />
-                  <p className="text-[12px] text-[#8A8A8A]">Paloma</p>
+                <div className="flex justify-between mt-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-black" />
+                      <p className="text-[12px] text-[#8A8A8A]">Arthur</p>
+                    </div>
+                    <p className="text-[16px] font-bold text-black mt-1">{formatAmount(arthurTotal)} €</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#D4D4D4]" />
+                      <p className="text-[12px] text-[#8A8A8A]">Paloma</p>
+                    </div>
+                    <p className="text-[16px] font-bold text-black mt-1">{formatAmount(palomaTotal)} €</p>
+                  </div>
                 </div>
-                <p className="text-[16px] font-bold text-black mt-1">{formatAmount(palomaTotal)} €</p>
-              </div>
-            </div>
+              </>
+            ) : (
+              <p className="text-[13px] text-[#8A8A8A] text-center py-2">Aucune dépense dans cette catégorie</p>
+            )}
           </div>
         </div>
       )}
