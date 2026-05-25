@@ -33,7 +33,7 @@ export default function PullToRefresh({ children }: { children: React.ReactNode 
       setRefreshing(true)
       setPull(56)
       router.refresh()
-      await new Promise(r => setTimeout(r, 1100))
+      await new Promise(r => setTimeout(r, 600))
       setRefreshing(false)
       setPull(0)
     } else {

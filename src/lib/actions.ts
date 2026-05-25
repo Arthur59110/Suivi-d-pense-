@@ -158,6 +158,7 @@ export async function createExpense(data: ExpenseFormValues) {
   })
   revalidatePath('/')
   revalidatePath('/depenses')
+  revalidatePath('/analyse')
   redirect('/')
 }
 
@@ -169,6 +170,7 @@ export async function updateExpense(id: string, data: ExpenseFormValues) {
   if (error) throw new Error(friendlyError(error.message))
   revalidatePath('/')
   revalidatePath('/depenses')
+  revalidatePath('/analyse')
   redirect('/depenses')
 }
 
@@ -178,6 +180,7 @@ export async function deleteExpense(id: string) {
   if (error) throw new Error(friendlyError(error.message))
   revalidatePath('/')
   revalidatePath('/depenses')
+  revalidatePath('/analyse')
 }
 
 export async function signOut() {
@@ -221,6 +224,7 @@ export async function createRevenueFromSavings(
   revalidatePath('/')
   revalidatePath('/revenus')
   revalidatePath('/epargne')
+  revalidatePath('/analyse')
   redirect('/')
 }
 
@@ -237,6 +241,7 @@ export async function createRevenue(data: RevenueFormValues) {
   })
   revalidatePath('/')
   revalidatePath('/revenus')
+  revalidatePath('/analyse')
   redirect('/')
 }
 
@@ -248,6 +253,7 @@ export async function updateRevenue(id: string, data: RevenueFormValues) {
   if (error) throw new Error(friendlyError(error.message))
   revalidatePath('/')
   revalidatePath('/revenus')
+  revalidatePath('/analyse')
   redirect('/revenus')
 }
 
@@ -257,6 +263,7 @@ export async function deleteRevenue(id: string) {
   if (error) throw new Error(friendlyError(error.message))
   revalidatePath('/')
   revalidatePath('/revenus')
+  revalidatePath('/analyse')
 }
 
 export async function createSavingFromBudget(savingData: SavingFormValues) {
@@ -289,6 +296,7 @@ export async function createSavingFromBudget(savingData: SavingFormValues) {
   revalidatePath('/')
   revalidatePath('/epargne')
   revalidatePath('/depenses')
+  revalidatePath('/analyse')
   redirect('/epargne')
 }
 
@@ -306,6 +314,7 @@ export async function createSaving(data: SavingFormValues) {
   })
   revalidatePath('/')
   revalidatePath('/epargne')
+  revalidatePath('/analyse')
   redirect('/epargne')
 }
 
@@ -317,6 +326,7 @@ export async function updateSaving(id: string, data: SavingFormValues) {
   if (error) throw new Error(friendlyError(error.message))
   revalidatePath('/')
   revalidatePath('/epargne')
+  revalidatePath('/analyse')
   redirect('/epargne')
 }
 
@@ -349,6 +359,7 @@ export async function deleteSaving(id: string) {
   revalidatePath('/')
   revalidatePath('/epargne')
   revalidatePath('/depenses')
+  revalidatePath('/analyse')
 }
 
 export async function cancelReport(revenueIds: string[]) {
