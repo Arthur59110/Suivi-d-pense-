@@ -9,7 +9,7 @@ import {
 } from '@/lib/biometric'
 import { Delete } from 'lucide-react'
 
-type Screen = 'unlocked' | 'face-id' | 'verifying' | 'pin'
+type Screen = 'unlocked' | 'face-id' | 'verifying' | 'pin' | 'password'
 
 const PAD = ['1','2','3','4','5','6','7','8','9','','0','⌫']
 
@@ -19,6 +19,8 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
   const [shake, setShake]     = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [name, setName]       = useState('')
+  const [password, setPassword] = useState('')
+  const [pwPending, setPwPending] = useState(false)
 
   const unlock = useCallback(() => {
     markSessionUnlocked()
@@ -89,6 +91,20 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     })
   }, [pin, unlock])
 
+  async function handlePassword(e: React.FormEvent) {
+    e.preventDefault()
+    if (!password) return
+    setPwPending(true); setError(null)
+    try {
+      const { getSupabaseBrowser } = await import('@/lib/supabase/client')
+      const { getBiometricEmail } = await import('@/lib/biometric')
+      const supabase = getSupabaseBrowser()
+      const { error: err } = await supabase.auth.signInWithPassword({ email: getBiometricEmail(), password })
+      if (err) { setError('Mot de passe incorrect'); return }
+      unlock()
+    } finally { setPwPending(false) }
+  }
+
   async function handleFaceId() {
     setError(null)
     setScreen('verifying')
@@ -127,25 +143,73 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
 
       {/* Face ID */}
       {(screen === 'face-id' || screen === 'verifying') && (
-        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-8">
-          <button
-            onClick={handleFaceId}
-            disabled={screen === 'verifying'}
-            className="flex flex-col items-center gap-3 disabled:opacity-50 active:scale-95 transition-transform"
-          >
-            <div className="w-20 h-20 rounded-full border-2 border-black flex items-center justify-center">
-              <FaceIdIcon size={44} spinning={screen === 'verifying'} />
-            </div>
-            <span className="text-[15px] font-semibold text-black">
-              {screen === 'verifying' ? 'Vérification…' : 'Déverrouiller avec Face ID'}
-            </span>
-          </button>
-          {error && <p className="text-[13px] text-red-500">{error}</p>}
-          {isPinEnrolled() && (
-            <button onClick={showPin} className="mt-2 text-[14px] font-medium text-[#8A8A8A]">
-              Utiliser le code
+        <div className="flex-1 flex flex-col items-center justify-between pb-10 px-8">
+          <div className="flex-1 flex flex-col items-center justify-center gap-5">
+            <button
+              onClick={handleFaceId}
+              disabled={screen === 'verifying'}
+              className="flex flex-col items-center gap-3 disabled:opacity-50 active:scale-95 transition-transform"
+            >
+              <div className="w-20 h-20 rounded-full border-2 border-black flex items-center justify-center">
+                <FaceIdIcon size={44} spinning={screen === 'verifying'} />
+              </div>
+              <span className="text-[15px] font-semibold text-black">
+                {screen === 'verifying' ? 'Vérification…' : 'Déverrouiller avec Face ID'}
+              </span>
             </button>
-          )}
+            {error && <p className="text-[13px] text-red-500">{error}</p>}
+          </div>
+          {/* Fallback — toujours visible */}
+          <div className="flex flex-col items-center gap-2">
+            {isPinEnrolled() && (
+              <button onClick={showPin} className="text-[15px] font-semibold text-black py-2">
+                Utiliser le code
+              </button>
+            )}
+            <button
+              onClick={() => { setScreen('password'); setError(null) }}
+              className="text-[14px] font-medium text-[#8A8A8A] py-2"
+            >
+              {isPinEnrolled() ? 'Mot de passe' : 'Utiliser le mot de passe'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mot de passe */}
+      {screen === 'password' && (
+        <div className="flex-1 flex flex-col justify-between px-8 pb-10">
+          <form onSubmit={handlePassword} className="flex-1 flex flex-col justify-center gap-4">
+            <p className="text-[16px] font-semibold text-black text-center mb-2">Mot de passe</p>
+            <input
+              type="password"
+              autoFocus
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full rounded-[14px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none"
+              placeholder="••••••••"
+            />
+            {error && <p className="text-[13px] text-red-500 text-center">{error}</p>}
+            <button
+              type="submit"
+              disabled={pwPending || !password}
+              className="h-[54px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40"
+            >
+              {pwPending ? 'Vérification…' : 'Déverrouiller'}
+            </button>
+          </form>
+          <div className="flex flex-col items-center gap-2">
+            {isBiometricEnrolled() && (
+              <button onClick={() => { setScreen('face-id'); setError(null) }} className="text-[14px] font-medium text-[#8A8A8A] py-1">
+                Retour à Face ID
+              </button>
+            )}
+            {isPinEnrolled() && (
+              <button onClick={showPin} className="text-[14px] font-medium text-[#8A8A8A] py-1">
+                Utiliser le code
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -207,6 +271,19 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
                 )
               })}
             </div>
+          </div>
+          {/* Fallback depuis le PIN */}
+          <div className="flex flex-col items-center gap-1 mt-2">
+            {isBiometricEnrolled() && (
+              <button onClick={() => { setScreen('face-id'); setPin(''); setError(null) }}
+                className="text-[14px] font-medium text-[#8A8A8A] py-1">
+                Face ID
+              </button>
+            )}
+            <button onClick={() => { setScreen('password'); setPin(''); setError(null) }}
+              className="text-[13px] text-[#8A8A8A] py-1">
+              Mot de passe
+            </button>
           </div>
         </div>
       )}
