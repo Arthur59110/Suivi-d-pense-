@@ -235,31 +235,44 @@ function MonthlyView({
       )}
 
       {/* 6 derniers mois */}
-      <div>
-        <div className="flex items-baseline justify-between mb-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">6 derniers mois</p>
-          <p className="text-[12px] text-[#8A8A8A]">Moy. {formatAmount(avg6)} €</p>
+      <div className="rounded-[20px] bg-[#F7F7F7] p-4">
+        <div className="flex items-baseline justify-between mb-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">Dépenses par mois</p>
+          <p className="text-[12px] text-[#8A8A8A]">moy. {formatShort(avg6)} €</p>
         </div>
-        <div className="flex items-end justify-between gap-2 h-[120px]">
+        <div className="flex items-end justify-between gap-1.5 h-[160px]">
           {monthlyTotals.map((m, i) => {
             const height = maxMonthly > 0 ? (m.total / maxMonthly) * 100 : 0
             const isCurrent = i === monthlyTotals.length - 1
+            const periodParam = format(m.date, 'yyyy-MM')
             return (
-              <div key={m.label + i} className="flex-1 flex flex-col items-center gap-1.5">
+              <Link
+                key={m.label + i}
+                href={`/analyse?view=mois&period=${periodParam}`}
+                className="flex-1 flex flex-col items-center gap-1"
+              >
+                <span
+                  className="text-[10px] font-semibold leading-none mb-1"
+                  style={{ color: isCurrent ? '#000' : '#8A8A8A' }}
+                >
+                  {m.total > 0 ? formatShort(m.total) : ''}
+                </span>
                 <div className="w-full flex-1 flex items-end">
                   <div
-                    className="w-full rounded-t-[6px] transition-all"
+                    className="w-full rounded-t-[5px] transition-all"
                     style={{
-                      height: `${Math.max(height, 2)}%`,
-                      background: isCurrent ? '#000000' : '#E5E5E5',
+                      height: `${Math.max(height, 3)}%`,
+                      background: isCurrent ? '#000000' : '#D4D4D4',
                     }}
                   />
                 </div>
-                <span className="text-[10px] text-[#8A8A8A] capitalize">{m.label}</span>
-                <span className="text-[10px] font-semibold text-black leading-none">
-                  {m.total > 0 ? formatShort(m.total) : '–'}
+                <span
+                  className="text-[10px] font-medium capitalize mt-1"
+                  style={{ color: isCurrent ? '#000' : '#8A8A8A' }}
+                >
+                  {m.label}
                 </span>
-              </div>
+              </Link>
             )
           })}
         </div>
