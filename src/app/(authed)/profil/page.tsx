@@ -4,6 +4,7 @@ import { getUserName, getWhoFromEmail } from '@/lib/types'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import LogoutButton from '@/components/LogoutButton'
 import NotificationToggle from '@/components/NotificationToggle'
+import BiometricSettings from '@/components/BiometricSettings'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Settings2, PiggyBank, BarChart3, Mail } from 'lucide-react'
 
@@ -66,6 +67,14 @@ export default async function ProfilPage() {
             <ChevronRight size={16} color="#8A8A8A" />
           </Link>
         </div>
+      </div>
+
+      {/* Sécurité */}
+      <div>
+        <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">
+          Sécurité
+        </p>
+        <BiometricSettings userId={user?.id ?? ''} />
       </div>
 
       {/* Notifications */}

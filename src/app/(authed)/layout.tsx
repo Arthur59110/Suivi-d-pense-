@@ -7,6 +7,7 @@ import PullToRefresh from '@/components/PullToRefresh'
 import UpdatePrompt from '@/components/UpdatePrompt'
 import DailyMessage from '@/components/DailyMessage'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
+import AppLock from '@/components/AppLock'
 
 export default async function AuthedLayout({ children }: { children: React.ReactNode }) {
   const supabase = await getSupabaseServer()
@@ -18,12 +19,14 @@ export default async function AuthedLayout({ children }: { children: React.React
       <ServiceWorkerRegister />
       <DailyMessage />
       <UpdatePrompt />
-      <PullToRefresh>
-        <div className="mx-auto max-w-[430px] min-h-screen flex flex-col pb-[calc(5rem+env(safe-area-inset-bottom))]">
-          {children}
-        </div>
-      </PullToRefresh>
-      <BottomNav />
+      <AppLock>
+        <PullToRefresh>
+          <div className="mx-auto max-w-[430px] min-h-screen flex flex-col pb-[calc(5rem+env(safe-area-inset-bottom))]">
+            {children}
+          </div>
+        </PullToRefresh>
+        <BottomNav />
+      </AppLock>
     </div>
   )
 }

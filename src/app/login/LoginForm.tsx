@@ -2,6 +2,8 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseBrowser } from '@/lib/supabase/client'
+import { setUserInfo, markSessionUnlocked } from '@/lib/biometric'
+import { getUserName } from '@/lib/types'
 
 export default function LoginForm() {
   const [email, setEmail] = useState('')
@@ -17,6 +19,8 @@ export default function LoginForm() {
       const supabase = getSupabaseBrowser()
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
       if (signInError) { setError(signInError.message); return }
+      setUserInfo(email, getUserName(email))
+      markSessionUnlocked()
       router.push('/')
       router.refresh()
     })
