@@ -4,9 +4,9 @@ import { createExpense, createRevenue, createRevenueFromSavings, createSavingFro
 import { CATEGORIES, REVENUE_SOURCES } from '@/lib/types'
 import CategoryIcon from '@/components/CategoryIcon'
 import RevenueIcon from '@/components/RevenueIcon'
-import { ChevronLeft, PiggyBank } from 'lucide-react'
+import { ChevronLeft, PiggyBank, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
-import { format, startOfMonth, parseISO } from 'date-fns'
+import { format, startOfMonth, parseISO, isSameMonth } from 'date-fns'
 
 function toMonthValue(d: string) { return format(startOfMonth(parseISO(d)), 'yyyy-MM') }
 function toBudgetMonthDate(m: string) { return `${m}-01` }
@@ -15,7 +15,13 @@ interface SavingsAccount { who: 'arthur' | 'paloma'; account_name: string }
 
 type Mode = 'expense' | 'revenue' | 'saving'
 
-export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAccounts: SavingsAccount[] }) {
+export default function UnifiedTransactionForm({
+  savingsAccounts,
+  monthBalance,
+}: {
+  savingsAccounts: SavingsAccount[]
+  monthBalance: { arthur: number; paloma: number }
+}) {
   const today = new Date().toISOString().split('T')[0]
   const [mode, setMode] = useState<Mode>('expense')
 
@@ -99,6 +105,15 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
   const arthurAccounts = savingsAccounts.filter(a => a.who === 'arthur')
   const palomaAccounts = savingsAccounts.filter(a => a.who === 'paloma')
   const accountSuggestions = savingsAccounts.filter(a => a.who === who).map(a => a.account_name)
+
+  const numAmount = parseFloat(amount.replace(',', '.')) || 0
+  const dateIsCurrentMonth = isSameMonth(new Date(date), new Date())
+  const currentBalance = monthBalance[who]
+  const isBalanceInsufficient =
+    (mode === 'expense' || mode === 'saving') &&
+    dateIsCurrentMonth &&
+    numAmount > 0 &&
+    numAmount > currentBalance
 
   const titles: Record<Mode, string> = {
     expense: 'Nouvelle dépense',
@@ -331,7 +346,30 @@ export default function UnifiedTransactionForm({ savingsAccounts }: { savingsAcc
 
         {error && <p className="text-[13px] text-red-500 animate-fade-in">{error}</p>}
 
-        <button type="submit" disabled={isPending}
+        {isBalanceInsufficient && (
+          <div className="rounded-[14px] bg-[#FFF3CD] border border-[#F0C040] px-4 py-4 flex gap-3 items-start">
+            <AlertTriangle size={18} color="#B8860B" className="flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold text-[#7A5C00] leading-snug">
+                Solde insuffisant ce mois
+              </p>
+              <p className="text-[12px] text-[#7A5C00] mt-1 leading-snug">
+                Il reste{' '}
+                <span className="font-semibold">
+                  {currentBalance.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </span>{' '}
+                sur le solde de {who === 'arthur' ? 'Arthur' : 'Paloma'} ce mois.
+                Retirez d&apos;abord de l&apos;épargne avant d&apos;enregistrer cette{' '}
+                {mode === 'saving' ? 'mise de côté' : 'dépense'}.
+              </p>
+              <Link href="/epargne" className="inline-block mt-2 text-[12px] font-semibold text-[#7A5C00] underline underline-offset-2">
+                Aller à l&apos;épargne
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <button type="submit" disabled={isPending || isBalanceInsufficient}
           className="mt-auto h-[56px] rounded-[14px] bg-black text-white text-[16px] font-semibold disabled:opacity-40 transition-transform active:scale-[0.97] duration-100">
           {isPending ? 'Enregistrement…' : 'Enregistrer'}
         </button>
