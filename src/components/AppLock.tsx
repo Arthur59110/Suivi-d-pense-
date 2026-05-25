@@ -167,20 +167,12 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
             </button>
             {error && <p className="text-[13px] text-red-500">{error}</p>}
           </div>
-          {/* Fallback — toujours visible */}
-          <div className="flex flex-col items-center gap-2">
-            {isPinEnrolled() && (
-              <button onClick={showPin} className="text-[15px] font-semibold text-black py-2">
-                Utiliser le code
-              </button>
-            )}
-            <button
-              onClick={() => { showPassword() }}
-              className="text-[14px] font-medium text-[#8A8A8A] py-2"
-            >
-              {isPinEnrolled() ? 'Mot de passe' : 'Utiliser le mot de passe'}
+          {/* Fallback */}
+          {isPinEnrolled() && (
+            <button onClick={showPin} className="text-[15px] font-semibold text-black py-2">
+              Utiliser le code
             </button>
-          </div>
+          )}
         </div>
       )}
 
@@ -288,19 +280,13 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
               })}
             </div>
           </div>
-          {/* Fallback depuis le PIN */}
-          <div className="flex flex-col items-center gap-1 mt-2">
-            {isBiometricEnrolled() && (
-              <button onClick={() => { setScreen('face-id'); setPin(''); setError(null) }}
-                className="text-[14px] font-medium text-[#8A8A8A] py-1">
-                Face ID
-              </button>
-            )}
-            <button onClick={() => { setScreen('password'); setPin(''); setError(null) }}
-              className="text-[13px] text-[#8A8A8A] py-1">
-              Mot de passe
+          {/* Retour Face ID depuis le PIN */}
+          {isBiometricEnrolled() && (
+            <button onClick={() => { setScreen('face-id'); setPin(''); setError(null) }}
+              className="text-[14px] font-medium text-[#8A8A8A] py-2 mt-2">
+              Face ID
             </button>
-          </div>
+          )}
         </div>
       )}
     </div>
