@@ -34,20 +34,24 @@ function groupLabel(dateStr: string): string {
 export default async function DepensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ who?: string; cat?: string }>
+  searchParams: Promise<{ who?: string; cat?: string; type?: string }>
 }) {
-  const { who: whoFilter, cat: catFilter } = await searchParams
+  const { who: whoFilter, cat: catFilter, type: typeFilter } = await searchParams
   const supabase = await getSupabaseServer()
 
   let query = supabase.from('expenses').select('*').order('date', { ascending: false })
   if (whoFilter && whoFilter !== 'all') query = query.eq('who', whoFilter)
   if (catFilter) query = query.eq('category', catFilter)
+  if (typeFilter === 'commune') query = query.eq('is_personal', false)
+  if (typeFilter === 'perso') query = query.eq('is_personal', true)
 
   const { data } = await query
   const expenses: Expense[] = (data as Expense[] | null) ?? []
 
   const total = expenses.reduce((s, e) => s + e.amount, 0)
   const count = expenses.length
+  const communeTotal = expenses.filter(e => !e.is_personal).reduce((s, e) => s + e.amount, 0)
+  const persoTotal = expenses.filter(e => e.is_personal).reduce((s, e) => s + e.amount, 0)
 
   const activeCategoryLabel = catFilter
     ? CATEGORIES.find(c => c.value === catFilter)?.label ?? catFilter
@@ -74,14 +78,16 @@ export default async function DepensesPage({
         </Link>
       </div>
 
-      {/* Carte récap du filtre */}
+      {/* Carte récap */}
       <div className="px-5 animate-slide-up" style={{ animationDelay: '60ms' }}>
-        <div className="rounded-[20px] bg-[#F7F7F7] p-5 transition-transform active:scale-[0.98] duration-100">
+        <div className="rounded-[20px] bg-[#F7F7F7] p-5">
           <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A]">
             {whoFilter && whoFilter !== 'all'
               ? `Dépenses ${whoFilter === 'arthur' ? 'Arthur' : 'Paloma'}`
               : activeCategoryLabel
                 ? `Catégorie · ${activeCategoryLabel}`
+                : typeFilter === 'commune' ? 'Dépenses communes'
+                : typeFilter === 'perso' ? 'Dépenses personnelles'
                 : 'Total des dépenses'}
           </p>
           <p className="text-[36px] font-bold text-black mt-1 leading-none tracking-[-1px]">
@@ -90,6 +96,18 @@ export default async function DepensesPage({
           <p className="text-[13px] text-[#8A8A8A] mt-2">
             {count} {count > 1 ? 'dépenses' : 'dépense'}
           </p>
+          {!typeFilter && communeTotal > 0 && persoTotal > 0 && (
+            <div className="flex gap-4 mt-3 pt-3 border-t border-[#E8E8E8]">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8A8A8A]">Communes</p>
+                <p className="text-[14px] font-semibold text-black mt-0.5">{formatAmount(communeTotal)} €</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8A8A8A]">Personnelles</p>
+                <p className="text-[14px] font-semibold text-black mt-0.5">{formatAmount(persoTotal)} €</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -99,6 +117,36 @@ export default async function DepensesPage({
           Personne
         </p>
         <PersonFilter activeWho={whoFilter} />
+      </div>
+
+      {/* Filtre commune / personnelle */}
+      <div className="px-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Type</p>
+        <div className="rounded-[12px] bg-[#F7F7F7] p-1 flex gap-1">
+          {[
+            { val: undefined, label: 'Toutes' },
+            { val: 'commune', label: 'Communes' },
+            { val: 'perso', label: 'Personnelles' },
+          ].map(({ val, label }) => {
+            const active = (val === undefined && !typeFilter) || typeFilter === val
+            const params = new URLSearchParams()
+            if (whoFilter && whoFilter !== 'all') params.set('who', whoFilter)
+            if (catFilter) params.set('cat', catFilter)
+            if (val) params.set('type', val)
+            const href = `/depenses${params.size ? `?${params}` : ''}`
+            return (
+              <Link key={label} href={href}
+                className="flex-1 py-2.5 rounded-[10px] text-[13px] font-semibold text-center transition-all"
+                style={{
+                  background: active ? '#000' : 'transparent',
+                  color: active ? '#fff' : '#8A8A8A',
+                  boxShadow: active ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
+                }}>
+                {label}
+              </Link>
+            )
+          })}
+        </div>
       </div>
 
       {/* Filtre par catégorie */}
