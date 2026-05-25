@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react'
 import { getSupabaseBrowser } from '@/lib/supabase/client'
 import {
   isBiometricEnrolled, isSessionUnlocked, markSessionUnlocked,
@@ -7,14 +7,15 @@ import {
   recordHiddenAt, shouldRelockAfterBackground, lockSession,
 } from '@/lib/biometric'
 
-type Screen = 'checking' | 'unlocked' | 'face-id' | 'password' | 'verifying'
+type Screen = 'unlocked' | 'face-id' | 'password' | 'verifying'
 
 export default function AppLock({ children }: { children: React.ReactNode }) {
-  const [screen, setScreen] = useState<Screen>('checking')
+  // Default unlocked pour que SSR et hydration soient identiques (pas de mismatch)
+  const [screen, setScreen] = useState<Screen>('unlocked')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
-  const name = typeof window !== 'undefined' ? getBiometricName() : ''
+  const [name, setName] = useState('')
 
   const unlock = useCallback(() => {
     markSessionUnlocked()
@@ -23,14 +24,19 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     setPassword('')
   }, [])
 
-  // Vérifie l'état au montage
-  useEffect(() => {
-    if (!isBiometricEnrolled() || isSessionUnlocked()) {
+  // useLayoutEffect : s'exécute avant le premier paint → pas de flash de contenu
+  useLayoutEffect(() => {
+    setName(getBiometricName())
+    try {
+      if (isBiometricEnrolled() && !isSessionUnlocked()) {
+        setScreen('face-id')
+      } else {
+        markSessionUnlocked()
+      }
+    } catch {
+      // localStorage inaccessible (mode privé strict) → on laisse passer
       markSessionUnlocked()
-      setScreen('unlocked')
-      return
     }
-    setScreen('face-id')
   }, [])
 
   // Re-verrouillage en arrière-plan
@@ -74,7 +80,6 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     }
   }
 
-  if (screen === 'checking') return null
   if (screen === 'unlocked') return <>{children}</>
 
   return (
