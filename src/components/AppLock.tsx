@@ -4,7 +4,7 @@ import {
   isLockEnabled, isBiometricEnrolled, isPinEnrolled,
   isSessionUnlocked, markSessionUnlocked,
   verifyBiometric, verifyPin,
-  getBiometricName,
+  getBiometricName, getBiometricEmail,
   recordHiddenAt, shouldRelockAfterBackground, lockSession,
 } from '@/lib/biometric'
 import { Delete } from 'lucide-react'
@@ -19,7 +19,8 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
   const [shake, setShake]     = useState(false)
   const [error, setError]     = useState<string | null>(null)
   const [name, setName]       = useState('')
-  const [password, setPassword] = useState('')
+  const [email, setEmail]         = useState('')
+  const [password, setPassword]   = useState('')
   const [pwPending, setPwPending] = useState(false)
 
   const unlock = useCallback(() => {
@@ -33,6 +34,14 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     setScreen('pin')
     setPin('')
     setError(null)
+  }, [])
+
+  // Pré-remplit l'email quand on bascule sur l'écran mot de passe
+  const showPassword = useCallback(() => {
+    setScreen('password')
+    setError(null)
+    setPassword('')
+    setEmail(getBiometricEmail())
   }, [])
 
   // Détermine l'écran initial avant le premier paint
@@ -93,14 +102,13 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
 
   async function handlePassword(e: React.FormEvent) {
     e.preventDefault()
-    if (!password) return
+    if (!email || !password) return
     setPwPending(true); setError(null)
     try {
       const { getSupabaseBrowser } = await import('@/lib/supabase/client')
-      const { getBiometricEmail } = await import('@/lib/biometric')
       const supabase = getSupabaseBrowser()
-      const { error: err } = await supabase.auth.signInWithPassword({ email: getBiometricEmail(), password })
-      if (err) { setError('Mot de passe incorrect'); return }
+      const { error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (err) { setError('Email ou mot de passe incorrect'); return }
       unlock()
     } finally { setPwPending(false) }
   }
@@ -167,7 +175,7 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
               </button>
             )}
             <button
-              onClick={() => { setScreen('password'); setError(null) }}
+              onClick={() => { showPassword() }}
               className="text-[14px] font-medium text-[#8A8A8A] py-2"
             >
               {isPinEnrolled() ? 'Mot de passe' : 'Utiliser le mot de passe'}
@@ -179,8 +187,16 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
       {/* Mot de passe */}
       {screen === 'password' && (
         <div className="flex-1 flex flex-col justify-between px-8 pb-10">
-          <form onSubmit={handlePassword} className="flex-1 flex flex-col justify-center gap-4">
+          <form onSubmit={handlePassword} className="flex-1 flex flex-col justify-center gap-3">
             <p className="text-[16px] font-semibold text-black text-center mb-2">Mot de passe</p>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full rounded-[14px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none"
+              placeholder="adresse@email.com"
+            />
             <input
               type="password"
               autoFocus
