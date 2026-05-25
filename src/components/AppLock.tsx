@@ -73,17 +73,16 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // volontairement au montage uniquement
 
-  // Verrouillage immédiat dès que l'app passe en arrière-plan
+  // Verrouillage après 5 min en arrière-plan
   useEffect(() => {
     function onVisibility() {
       if (document.hidden) {
-        if (isLockEnabled()) lockSession()
-      } else {
-        if (isLockEnabled() && !isSessionUnlocked()) {
-          setScreen(isBiometricEnrolled() ? 'face-id' : 'pin')
-          setPin('')
-          setError(null)
-        }
+        recordHiddenAt()
+      } else if (shouldRelockAfterBackground() && isLockEnabled()) {
+        lockSession()
+        setScreen(isBiometricEnrolled() ? 'face-id' : 'pin')
+        setPin('')
+        setError(null)
       }
     }
     document.addEventListener('visibilitychange', onVisibility)
