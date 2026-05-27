@@ -171,8 +171,8 @@ export default async function DashboardPage({
             </div>
             <span className="ml-auto">
               {isOverBudget
-                ? `Dépassement ${f(totalExpenses - totalRevenues)} €`
-                : `Reste ${f(totalRevenues - totalExpenses)} €`}
+                ? `Dépassement ${f(totalUsed - totalRevenues)} €`
+                : `Reste ${f(balance)} €`}
             </span>
           </div>
         </div>
