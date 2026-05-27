@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { createExpense, createRevenue, createRevenueFromSavings, createSavingFromBudget } from '@/lib/actions'
 import { CATEGORIES, REVENUE_SOURCES } from '@/lib/types'
 import CategoryIcon from '@/components/CategoryIcon'
@@ -47,6 +47,7 @@ export default function UnifiedTransactionForm({
 
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const submittingRef = useRef(false)
 
   function switchMode(m: Mode) { setMode(m); setError(null) }
 
@@ -57,12 +58,14 @@ export default function UnifiedTransactionForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
     setError(null)
     const numAmount = parseFloat(amount.replace(',', '.'))
-    if (!numAmount || numAmount <= 0) { setError('Montant invalide'); return }
+    if (!numAmount || numAmount <= 0) { submittingRef.current = false; setError('Montant invalide'); return }
 
     if (mode === 'expense') {
-      if (!category) { setError('Sélectionnez une catégorie'); return }
+      if (!category) { submittingRef.current = false; setError('Sélectionnez une catégorie'); return }
       startTransition(async () => {
         try {
           await createExpense({ amount: numAmount, description, category, who, is_personal: isPersonal, date })
@@ -70,10 +73,12 @@ export default function UnifiedTransactionForm({
           const msg = err instanceof Error ? err.message : String(err)
           if (msg.includes('NEXT_REDIRECT')) throw err
           setError(msg)
+        } finally {
+          submittingRef.current = false
         }
       })
     } else if (mode === 'saving') {
-      if (!savingAccountName.trim()) { setError('Sélectionne ou saisis un compte'); return }
+      if (!savingAccountName.trim()) { submittingRef.current = false; setError('Sélectionne ou saisis un compte'); return }
       startTransition(async () => {
         try {
           await createSavingFromBudget({ amount: numAmount, description, who, type: 'deposit', account_name: savingAccountName.trim(), date })
@@ -81,10 +86,12 @@ export default function UnifiedTransactionForm({
           const msg = err instanceof Error ? err.message : String(err)
           if (msg.includes('NEXT_REDIRECT')) throw err
           setError(msg)
+        } finally {
+          submittingRef.current = false
         }
       })
     } else {
-      if (fromSavings && !savingsAccount.trim()) { setError('Sélectionne le compte d\'épargne à débiter'); return }
+      if (fromSavings && !savingsAccount.trim()) { submittingRef.current = false; setError('Sélectionne le compte d\'épargne à débiter'); return }
       startTransition(async () => {
         try {
           const revenueData = { amount: numAmount, description, source: source || 'autre', who, date, budget_month: toBudgetMonthDate(budgetMonthValue) }
@@ -97,6 +104,8 @@ export default function UnifiedTransactionForm({
           const msg = err instanceof Error ? err.message : String(err)
           if (msg.includes('NEXT_REDIRECT')) throw err
           setError(msg)
+        } finally {
+          submittingRef.current = false
         }
       })
     }
