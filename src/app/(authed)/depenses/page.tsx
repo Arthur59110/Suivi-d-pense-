@@ -39,7 +39,7 @@ export default async function DepensesPage({
   const { who: whoFilter, cat: catFilter, type: typeFilter } = await searchParams
   const supabase = await getSupabaseServer()
 
-  let query = supabase.from('expenses').select('*').order('date', { ascending: false })
+  let query = supabase.from('expenses').select('*').neq('category', 'epargne').order('date', { ascending: false })
   if (whoFilter && whoFilter !== 'all') query = query.eq('who', whoFilter)
   if (catFilter) query = query.eq('category', catFilter)
   if (typeFilter === 'commune') query = query.eq('is_personal', false)
