@@ -1,5 +1,5 @@
 'use client'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { createRevenue, createRevenueFromSavings } from '@/lib/actions'
 import { REVENUE_SOURCES } from '@/lib/types'
 import RevenueIcon from '@/components/RevenueIcon'
@@ -35,6 +35,7 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
 
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const submittingRef = useRef(false)
 
   function handleDateChange(val: string) {
     setDate(val)
@@ -48,27 +49,30 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (submittingRef.current) return
+    submittingRef.current = true
     setError(null)
     const numAmount = parseFloat(amount.replace(',', '.'))
-    if (!numAmount || numAmount <= 0) { setError('Montant invalide'); return }
-    if (!source) { setError('Sélectionnez une source'); return }
-    if (fromSavings && !savingsAccount.trim()) { setError('Sélectionne le compte d\'épargne à débiter'); return }
+    if (!numAmount || numAmount <= 0) { submittingRef.current = false; setError('Montant invalide'); return }
+    if (!fromSavings && !source) { submittingRef.current = false; setError('Sélectionnez une source'); return }
+    if (fromSavings && !savingsAccount.trim()) { submittingRef.current = false; setError('Sélectionne le compte d\'épargne à débiter'); return }
 
     startTransition(async () => {
       try {
-        const revenueData = {
-          amount: numAmount, description, source, who, date,
-          budget_month: toBudgetMonthDate(budgetMonthValue),
-        }
         if (fromSavings) {
-          await createRevenueFromSavings(revenueData, savingsWho, savingsAccount.trim())
+          await createRevenueFromSavings(savingsWho, savingsAccount.trim(), numAmount, description, date)
         } else {
-          await createRevenue(revenueData)
+          await createRevenue({
+            amount: numAmount, description, source, who, date,
+            budget_month: toBudgetMonthDate(budgetMonthValue),
+          })
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes('NEXT_REDIRECT')) throw err
         setError(msg)
+      } finally {
+        submittingRef.current = false
       }
     })
   }
@@ -106,22 +110,24 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
           ))}
         </div>
 
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Source</p>
-          <div className="grid grid-cols-3 gap-2">
-            {REVENUE_SOURCES.map(src => (
-              <button key={src.value} type="button" onClick={() => setSource(src.value)}
-                className="flex flex-col items-center gap-1.5 rounded-[12px] py-3 px-1 transition-all"
-                style={{ background: source === src.value ? '#000000' : '#F7F7F7' }}>
-                <RevenueIcon source={src.value} size={20} containerSize={36} inverted={source === src.value} />
-                <span className="text-[10px] font-medium leading-tight text-center"
-                  style={{ color: source === src.value ? '#ffffff' : '#8A8A8A' }}>
-                  {src.label}
-                </span>
-              </button>
-            ))}
+        {!fromSavings && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Source</p>
+            <div className="grid grid-cols-3 gap-2">
+              {REVENUE_SOURCES.map(src => (
+                <button key={src.value} type="button" onClick={() => setSource(src.value)}
+                  className="flex flex-col items-center gap-1.5 rounded-[12px] py-3 px-1 transition-all"
+                  style={{ background: source === src.value ? '#000000' : '#F7F7F7' }}>
+                  <RevenueIcon source={src.value} size={20} containerSize={36} inverted={source === src.value} />
+                  <span className="text-[10px] font-medium leading-tight text-center"
+                    style={{ color: source === src.value ? '#ffffff' : '#8A8A8A' }}>
+                    {src.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <input type="text" value={description} onChange={e => setDescription(e.target.value)}
           placeholder="Description (optionnel)"
@@ -135,13 +141,15 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
             className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
         </div>
 
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
-            Compte pour le mois de
-          </p>
-          <input type="month" value={budgetMonthValue} onChange={e => setBudgetMonthValue(e.target.value)}
-            className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
-        </div>
+        {!fromSavings && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">
+              Compte pour le mois de
+            </p>
+            <input type="month" value={budgetMonthValue} onChange={e => setBudgetMonthValue(e.target.value)}
+              className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
+          </div>
+        )}
 
         {/* Toggle : pioché dans l'épargne */}
         <div
@@ -160,9 +168,9 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
               <PiggyBank size={18} color={fromSavings ? '#fff' : '#8A8A8A'} strokeWidth={1.5} />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-[15px] font-semibold text-black">Pioché dans l'épargne</p>
+              <p className="text-[15px] font-semibold text-black">Pioché dans l&apos;épargne</p>
               <p className="text-[12px] text-[#8A8A8A] leading-snug">
-                Le solde du compte d'épargne sera réduit automatiquement
+                Déduit du compte épargne, solde disponible augmenté
               </p>
             </div>
             <div
@@ -184,7 +192,7 @@ export default function NewRevenueForm({ savingsAccounts }: { savingsAccounts: S
 
               {savingsAccounts.length === 0 ? (
                 <p className="text-[13px] text-[#8A8A8A]">
-                  Aucun compte d'épargne — créez-en un dans l'onglet Épargne
+                  Aucun compte d&apos;épargne — créez-en un dans l&apos;onglet Épargne
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">

@@ -190,39 +190,33 @@ export async function signOut() {
 }
 
 export async function createRevenueFromSavings(
-  revenueData: RevenueFormValues,
   savingsWho: 'arthur' | 'paloma',
-  savingsAccountName: string
+  savingsAccountName: string,
+  amount: number,
+  description: string,
+  date: string
 ) {
-  const parsedRevenue = revenueSchema.safeParse(revenueData)
-  if (!parsedRevenue.success) throw new Error('Données invalides')
-
   const parsedSaving = savingSchema.safeParse({
-    amount: revenueData.amount,
-    description: `Virement vers revenus`,
+    amount,
+    description: description || 'Retrait épargne',
     who: savingsWho,
     type: 'withdrawal',
     account_name: savingsAccountName,
-    date: revenueData.date,
+    date,
   })
   if (!parsedSaving.success) throw new Error('Données épargne invalides')
 
   const supabase = await getSupabaseServer()
-  const [r1, r2] = await Promise.all([
-    supabase.from('revenues').insert(parsedRevenue.data),
-    supabase.from('savings').insert(parsedSaving.data),
-  ])
-  if (r1.error) throw new Error(friendlyError(r1.error.message))
-  if (r2.error) throw new Error(friendlyError(r2.error.message))
+  const { error } = await supabase.from('savings').insert(parsedSaving.data)
+  if (error) throw new Error(friendlyError(error.message))
 
   await notifyArthurIfPaloma({
     title: 'Paloma a pioché dans l\'épargne',
-    body: `${savingsAccountName} · -${fmtAmount(revenueData.amount)} €`,
+    body: `${savingsAccountName} · -${fmtAmount(amount)} €`,
     url: '/epargne',
   })
 
   revalidatePath('/')
-  revalidatePath('/revenus')
   revalidatePath('/epargne')
   revalidatePath('/analyse')
   redirect('/')

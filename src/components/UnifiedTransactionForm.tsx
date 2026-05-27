@@ -96,7 +96,7 @@ export default function UnifiedTransactionForm({
         try {
           const revenueData = { amount: numAmount, description, source: source || 'autre', who, date, budget_month: toBudgetMonthDate(budgetMonthValue) }
           if (fromSavings) {
-            await createRevenueFromSavings(revenueData, savingsWho, savingsAccount.trim())
+            await createRevenueFromSavings(savingsWho, savingsAccount.trim(), numAmount, description, date)
           } else {
             await createRevenue(revenueData)
           }
@@ -251,27 +251,31 @@ export default function UnifiedTransactionForm({
         {/* REVENU : type + mois + pioché dans épargne */}
         {mode === 'revenue' && (
           <div className="flex flex-col gap-5 animate-slide-up">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Type</p>
-              <div className="grid grid-cols-4 gap-2">
-                {REVENUE_SOURCES.map(src => (
-                  <button key={src.value} type="button" onClick={() => setSource(src.value)}
-                    className="flex flex-col items-center gap-1.5 rounded-[12px] py-3 px-1 transition-all"
-                    style={{ background: source === src.value ? '#000' : '#F7F7F7' }}>
-                    <RevenueIcon source={src.value} size={20} containerSize={36} inverted={source === src.value} />
-                    <span className="text-[10px] font-medium leading-tight text-center"
-                      style={{ color: source === src.value ? '#fff' : '#8A8A8A' }}>
-                      {src.label}
-                    </span>
-                  </button>
-                ))}
+            {!fromSavings && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Type</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {REVENUE_SOURCES.map(src => (
+                    <button key={src.value} type="button" onClick={() => setSource(src.value)}
+                      className="flex flex-col items-center gap-1.5 rounded-[12px] py-3 px-1 transition-all"
+                      style={{ background: source === src.value ? '#000' : '#F7F7F7' }}>
+                      <RevenueIcon source={src.value} size={20} containerSize={36} inverted={source === src.value} />
+                      <span className="text-[10px] font-medium leading-tight text-center"
+                        style={{ color: source === src.value ? '#fff' : '#8A8A8A' }}>
+                        {src.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Compte pour le mois de</p>
-              <input type="month" value={budgetMonthValue} onChange={e => setBudgetMonthValue(e.target.value)}
-                className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
-            </div>
+            )}
+            {!fromSavings && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-2">Compte pour le mois de</p>
+                <input type="month" value={budgetMonthValue} onChange={e => setBudgetMonthValue(e.target.value)}
+                  className="w-full rounded-[12px] bg-[#F7F7F7] px-4 py-4 text-[16px] text-black outline-none" />
+              </div>
+            )}
             <div className="rounded-[16px] border-2 overflow-hidden transition-all"
               style={{ borderColor: fromSavings ? '#000' : '#F0F0F0' }}>
               <button type="button" onClick={() => { setFromSavings(v => !v); setSavingsAccount('') }}
