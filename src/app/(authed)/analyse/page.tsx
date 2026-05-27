@@ -129,12 +129,12 @@ function MonthlyView({
   split: 'all' | 'commune' | 'perso'
   period?: string
 }) {
-  const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate))
+  const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate) && e.category !== 'epargne')
   const monthRevenues = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate))
   const monthSavings = savings.filter(s => isSameMonth(parseISO(s.date), referenceDate))
 
   const prevMonth = subMonths(referenceDate, 1)
-  const prevExpensesArr = expenses.filter(e => isSameMonth(parseISO(e.date), prevMonth))
+  const prevExpensesArr = expenses.filter(e => isSameMonth(parseISO(e.date), prevMonth) && e.category !== 'epargne')
 
   const totalExpenses = monthExpenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = monthRevenues.reduce((s, r) => s + r.amount, 0)
@@ -147,12 +147,12 @@ function MonthlyView({
   const monthlyTotals = months.map(m => ({
     date: m,
     label: format(m, 'MMM', { locale: fr }),
-    total: expenses.filter(e => isSameMonth(parseISO(e.date), m)).reduce((s, e) => s + e.amount, 0),
+    total: expenses.filter(e => isSameMonth(parseISO(e.date), m) && e.category !== 'epargne').reduce((s, e) => s + e.amount, 0),
   }))
   const maxMonthly = Math.max(...monthlyTotals.map(m => m.total), 1)
   const avg6 = monthlyTotals.reduce((s, m) => s + m.total, 0) / Math.max(monthlyTotals.length, 1)
 
-  const categoryTotals = CATEGORIES.map(cat => ({
+  const categoryTotals = CATEGORIES.filter(c => c.value !== 'epargne').map(cat => ({
     ...cat,
     total: monthExpenses.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
   }))
@@ -492,7 +492,7 @@ function YearlyView({
   split: 'all' | 'commune' | 'perso'
   period?: string
 }) {
-  const yearExpenses = expenses.filter(e => isSameYear(parseISO(e.date), referenceDate))
+  const yearExpenses = expenses.filter(e => isSameYear(parseISO(e.date), referenceDate) && e.category !== 'epargne')
   const yearRevenues = revenues.filter(r => isSameYear(parseISO(r.date), referenceDate))
   const yearSavings = savings.filter(s => isSameYear(parseISO(s.date), referenceDate))
 
@@ -520,7 +520,7 @@ function YearlyView({
     monthlyTotals[0] ?? { date: referenceDate, label: '', expenses: 0, revenues: 0 },
   )
 
-  const categoryTotals = CATEGORIES.map(cat => ({
+  const categoryTotals = CATEGORIES.filter(c => c.value !== 'epargne').map(cat => ({
     ...cat,
     total: yearExpenses.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
   }))

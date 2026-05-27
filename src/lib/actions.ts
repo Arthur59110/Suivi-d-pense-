@@ -270,23 +270,9 @@ export async function createSavingFromBudget(savingData: SavingFormValues) {
   const parsedSaving = savingSchema.safeParse(savingData)
   if (!parsedSaving.success) throw new Error('Données épargne invalides')
 
-  const parsedExpense = expenseSchema.safeParse({
-    amount: savingData.amount,
-    description: `Mise de côté — ${savingData.account_name}`,
-    category: 'epargne',
-    who: savingData.who,
-    is_personal: true,
-    date: savingData.date,
-  })
-  if (!parsedExpense.success) throw new Error('Données dépense invalides')
-
   const supabase = await getSupabaseServer()
-  const [r1, r2] = await Promise.all([
-    supabase.from('savings').insert(parsedSaving.data),
-    supabase.from('expenses').insert(parsedExpense.data),
-  ])
-  if (r1.error) throw new Error(friendlyError(r1.error.message))
-  if (r2.error) throw new Error(friendlyError(r2.error.message))
+  const { error } = await supabase.from('savings').insert(parsedSaving.data)
+  if (error) throw new Error(friendlyError(error.message))
 
   await notifyArthurIfPaloma({
     title: 'Paloma a mis de côté',
@@ -332,29 +318,8 @@ export async function updateSaving(id: string, data: SavingFormValues) {
 
 export async function deleteSaving(id: string) {
   const supabase = await getSupabaseServer()
-
-  // Récupère le saving avant suppression pour retrouver la dépense liée
-  const { data: saving } = await supabase
-    .from('savings')
-    .select('amount, who, date, account_name, description')
-    .eq('id', id)
-    .single()
-
   const { error } = await supabase.from('savings').delete().eq('id', id)
   if (error) throw new Error(friendlyError(error.message))
-
-  // Si ce saving venait de createSavingFromBudget, supprime aussi la dépense liée
-  if (saving) {
-    const linkedDesc = `Mise de côté — ${saving.account_name}`
-    await supabase
-      .from('expenses')
-      .delete()
-      .eq('amount', saving.amount)
-      .eq('who', saving.who)
-      .eq('date', saving.date)
-      .eq('description', linkedDesc)
-      .eq('category', 'epargne')
-  }
 
   revalidatePath('/')
   revalidatePath('/epargne')

@@ -42,7 +42,8 @@ export default async function DashboardPage({
   const savings: Saving[]   = (savingsRes.data as Saving[]   | null) ?? []
   const firstName = getUserName(user?.email ?? '')
 
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0)
+  const realExpenses = expenses.filter(e => e.category !== 'epargne')
+  const totalExpenses = realExpenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = revenues.reduce((s, r) => s + r.amount, 0)
   const totalSavingsDeposited = savings.filter(sv => sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
   const totalSavingsWithdrawn = savings.filter(sv => sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
@@ -51,19 +52,19 @@ export default async function DashboardPage({
   const budgetPercent = totalRevenues > 0 ? Math.min((totalExpenses / totalRevenues) * 100, 100) : 0
   const isOverBudget = totalExpenses > totalRevenues && totalRevenues > 0
 
-  const arthurExpenses = expenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
-  const palomaExpenses = expenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
+  const arthurExpenses = realExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
+  const palomaExpenses = realExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
   const arthurRevenues = revenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const palomaRevenues = revenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
   const arthurNet = arthurRevenues - arthurExpenses
   const palomaNet = palomaRevenues - palomaExpenses
 
-  const categoryTotals = CATEGORIES.map(cat => ({
+  const categoryTotals = CATEGORIES.filter(c => c.value !== 'epargne').map(cat => ({
     ...cat,
-    total: expenses.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
+    total: realExpenses.filter(e => e.category === cat.value).reduce((s, e) => s + e.amount, 0),
   })).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
 
-  const recent = expenses.slice(0, 5)
+  const recent = realExpenses.slice(0, 5)
 
   const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
