@@ -48,16 +48,21 @@ export default async function DashboardPage({
   const totalSavingsDeposited = savings.filter(sv => sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
   const totalSavingsWithdrawn = savings.filter(sv => sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
   const netMonthlySavings = totalSavingsDeposited - totalSavingsWithdrawn
-  const balance = totalRevenues - totalExpenses
-  const budgetPercent = totalRevenues > 0 ? Math.min((totalExpenses / totalRevenues) * 100, 100) : 0
-  const isOverBudget = totalExpenses > totalRevenues && totalRevenues > 0
+  const balance = totalRevenues - totalExpenses - netMonthlySavings
+  const totalUsed = totalExpenses + netMonthlySavings
+  const budgetPercent = totalRevenues > 0 ? Math.min((totalUsed / totalRevenues) * 100, 100) : 0
+  const isOverBudget = totalUsed > totalRevenues && totalRevenues > 0
 
+  const arthurSavings = savings.filter(sv => sv.who === 'arthur' && sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
+    - savings.filter(sv => sv.who === 'arthur' && sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
+  const palomaSavings = savings.filter(sv => sv.who === 'paloma' && sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
+    - savings.filter(sv => sv.who === 'paloma' && sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
   const arthurExpenses = realExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
   const palomaExpenses = realExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
   const arthurRevenues = revenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const palomaRevenues = revenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const arthurNet = arthurRevenues - arthurExpenses
-  const palomaNet = palomaRevenues - palomaExpenses
+  const arthurNet = arthurRevenues - arthurExpenses - arthurSavings
+  const palomaNet = palomaRevenues - palomaExpenses - palomaSavings
 
   const categoryTotals = CATEGORIES.filter(c => c.value !== 'epargne').map(cat => ({
     ...cat,

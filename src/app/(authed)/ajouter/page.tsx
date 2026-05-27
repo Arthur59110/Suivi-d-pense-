@@ -13,10 +13,11 @@ export default async function AjouterPage() {
   let monthBalance = { arthur: 0, paloma: 0 }
 
   try {
-    const [savingsRes, expensesRes, revenuesRes] = await Promise.all([
+    const [savingsRes, expensesRes, revenuesRes, savingsMovementsRes] = await Promise.all([
       supabase.from('savings').select('who, account_name').order('account_name'),
-      supabase.from('expenses').select('who, amount').gte('date', startDate).lte('date', endDate),
+      supabase.from('expenses').select('who, amount').neq('category', 'epargne').gte('date', startDate).lte('date', endDate),
       supabase.from('revenues').select('who, amount').gte('budget_month', startDate).lte('budget_month', endDate),
+      supabase.from('savings').select('who, amount, type').gte('date', startDate).lte('date', endDate),
     ])
 
     if (savingsRes.data) {
@@ -31,11 +32,14 @@ export default async function AjouterPage() {
 
     const expenses = (expensesRes.data ?? []) as { who: string; amount: number }[]
     const revenues = (revenuesRes.data ?? []) as { who: string; amount: number }[]
+    const savingsMovements = (savingsMovementsRes.data ?? []) as { who: string; amount: number; type: string }[]
 
     for (const person of ['arthur', 'paloma'] as const) {
       const rev = revenues.filter(r => r.who === person).reduce((s, r) => s + r.amount, 0)
       const exp = expenses.filter(e => e.who === person).reduce((s, e) => s + e.amount, 0)
-      monthBalance[person] = rev - exp
+      const netSav = savingsMovements.filter(sv => sv.who === person && sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
+        - savingsMovements.filter(sv => sv.who === person && sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
+      monthBalance[person] = rev - exp - netSav
     }
   } catch {
     // erreur réseau → formulaire sans vérification de solde
