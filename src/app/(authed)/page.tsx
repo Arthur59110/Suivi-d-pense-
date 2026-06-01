@@ -3,7 +3,6 @@ import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES, getUserName } from '@/lib/types'
 import { parseISO, endOfMonth, format, subMonths, addMonths } from 'date-fns'
-import { fr } from 'date-fns/locale'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
@@ -78,9 +77,9 @@ export default async function DashboardPage({
   const nextDate = addMonths(selectedDate, 1)
   const prevMonthStr = format(prevDate, 'yyyy-MM')
   const nextMonthStr = format(nextDate, 'yyyy-MM')
-  function capitalizeFirst(s: string) { return s.charAt(0).toUpperCase() + s.slice(1) }
-  const prevMonthLabel = capitalizeFirst(format(prevDate, 'MMM yyyy', { locale: fr }))
-  const nextMonthLabel = capitalizeFirst(format(nextDate, 'MMM yyyy', { locale: fr }))
+  const MONTHS_SHORT = ['Jan.', 'Fév.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sep.', 'Oct.', 'Nov.', 'Déc.']
+  const prevMonthLabel = `${MONTHS_SHORT[prevDate.getMonth()]} ${prevDate.getFullYear()}`
+  const nextMonthLabel = `${MONTHS_SHORT[nextDate.getMonth()]} ${nextDate.getFullYear()}`
 
   // Annuler : revenus de report présents dans le mois affiché
   const reportRevenues = revenues.filter(r => r.description?.startsWith('Report '))
