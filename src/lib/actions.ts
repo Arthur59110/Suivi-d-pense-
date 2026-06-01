@@ -355,7 +355,7 @@ export async function reportBalance(
 
   revalidatePath('/')
   revalidatePath('/revenus')
-  redirect(`/?month=${targetMonthStr}`)
+  redirect(`/?month=${sourceMonthStr}`)
 }
 
 export async function setBudget(category: string, amount: number) {

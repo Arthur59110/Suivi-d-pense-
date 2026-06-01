@@ -43,14 +43,27 @@ export default async function DashboardPage({
   const savings: Saving[]   = (savingsRes.data as Saving[]   | null) ?? []
   const firstName = getUserName(user?.email ?? '')
 
+  // Jambe sortante du report : lignes "Report {ce mois}" qui ont emporté le solde vers un autre mois
+  const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  const thisMonthReportLabel = `Report ${MONTHS_FULL[month - 1]} ${year}`
+  const { data: outData } = await supabase.from('revenues').select('*').eq('description', thisMonthReportLabel)
+  const outRows = (outData as Revenue[] | null) ?? []
+  const reportedOut = outRows.reduce((s, r) => s + r.amount, 0)
+  const reportedOutArthur = outRows.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
+  const reportedOutPaloma = outRows.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
+  const outTargetLabel = outRows.length > 0 && outRows[0].budget_month
+    ? `${MONTHS_FULL[parseISO(outRows[0].budget_month as string).getMonth()]} ${parseISO(outRows[0].budget_month as string).getFullYear()}`
+    : ''
+
   const realExpenses = expenses.filter(e => e.category !== 'epargne')
   const totalExpenses = realExpenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = revenues.reduce((s, r) => s + r.amount, 0)
   const totalSavingsDeposited = savings.filter(sv => sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
   const totalSavingsWithdrawn = savings.filter(sv => sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
   const netMonthlySavings = totalSavingsDeposited - totalSavingsWithdrawn
-  const balance = totalRevenues - totalExpenses - netMonthlySavings
-  const totalUsed = totalExpenses + netMonthlySavings
+  const rawBalance = totalRevenues - totalExpenses - netMonthlySavings - reportedOut
+  const balance = Math.abs(rawBalance) < 0.005 ? 0 : rawBalance
+  const totalUsed = totalExpenses + netMonthlySavings + reportedOut
   const budgetPercent = totalRevenues > 0 ? Math.min((totalUsed / totalRevenues) * 100, 100) : 0
   const isOverBudget = totalUsed > totalRevenues && totalRevenues > 0
 
@@ -62,8 +75,8 @@ export default async function DashboardPage({
   const palomaExpenses = realExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
   const arthurRevenues = revenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const palomaRevenues = revenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const arthurNet = arthurRevenues - arthurExpenses - arthurSavings
-  const palomaNet = palomaRevenues - palomaExpenses - palomaSavings
+  const arthurNet = arthurRevenues - arthurExpenses - arthurSavings - reportedOutArthur
+  const palomaNet = palomaRevenues - palomaExpenses - palomaSavings - reportedOutPaloma
 
   const categoryTotals = CATEGORIES.filter(c => c.value !== 'epargne').map(cat => ({
     ...cat,
@@ -119,7 +132,7 @@ export default async function DashboardPage({
       </div>
 
       {/* Bouton reporter le solde */}
-      {balance > 0.01 && reportRevenues.length === 0 && (
+      {balance > 0.01 && reportRevenues.length === 0 && reportedOut < 0.01 && (
         <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
           <ReportBalanceButton
             sourceMonthStr={monthStr}
@@ -129,6 +142,16 @@ export default async function DashboardPage({
             prevMonthLabel={prevMonthLabel}
             nextMonthStr={nextMonthStr}
             nextMonthLabel={nextMonthLabel}
+          />
+        </div>
+      )}
+
+      {/* Solde reporté vers un autre mois (jambe sortante) */}
+      {reportedOut > 0.01 && (
+        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
+          <CancelReportButton
+            ids={outRows.map(r => r.id)}
+            label={`Solde reporté vers ${outTargetLabel} — annuler pour le récupérer`}
           />
         </div>
       )}
