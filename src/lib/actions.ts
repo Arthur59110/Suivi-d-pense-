@@ -2,7 +2,6 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getSupabaseServer } from './supabase/server'
-import { getSupabaseAdmin } from './supabase/admin'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendPushTo } from './push'
 import { getWhoFromEmail, CATEGORIES } from './types'
@@ -343,14 +342,14 @@ export async function reportBalance(
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
   const label = `Report ${monthNames[sm - 1]} ${sy}`
 
-  const db = getSupabaseAdmin()
+  const supabase = await getSupabaseServer()
 
   const inserts: { amount: number; description: string; source: string; who: string; date: string; budget_month: string }[] = []
   if (arthurAmount > 0.01) inserts.push({ amount: Math.round(arthurAmount * 100) / 100, description: label, source: 'autre', who: 'arthur', date: targetDate, budget_month: targetDate })
   if (palomaAmount > 0.01) inserts.push({ amount: Math.round(palomaAmount * 100) / 100, description: label, source: 'autre', who: 'paloma', date: targetDate, budget_month: targetDate })
 
   if (inserts.length > 0) {
-    const { error } = await db.from('revenues').insert(inserts)
+    const { error } = await supabase.from('revenues').insert(inserts)
     if (error) throw new Error(friendlyError(error.message))
   }
 
