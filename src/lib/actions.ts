@@ -331,46 +331,32 @@ export async function cancelReport(revenueIds: string[]) {
 }
 
 export async function reportBalance(
-  currentMonthStr: string,
+  sourceMonthStr: string,
   arthurAmount: number,
   palomaAmount: number,
+  targetMonthStr: string,
 ) {
-  const [y, m] = currentMonthStr.split('-').map(Number)
-  const nextY = m === 12 ? y + 1 : y
-  const nextM = m === 12 ? 1 : m + 1
-  const nextMonthStr = `${nextY}-${String(nextM).padStart(2, '0')}`
-  const nextMonthDate = `${nextMonthStr}-01`
+  const [sy, sm] = sourceMonthStr.split('-').map(Number)
+  const targetDate = `${targetMonthStr}-01`
 
   const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
-  const label = `Report ${monthNames[m - 1]} ${y}`
+  const label = `Report ${monthNames[sm - 1]} ${sy}`
 
-  const supabase = await getSupabaseServer()
+  const db = getSupabaseAdmin()
 
-  if (arthurAmount > 0.01) {
-    await supabase.from('revenues').insert({
-      amount: Math.round(arthurAmount * 100) / 100,
-      description: label,
-      source: 'autre',
-      who: 'arthur',
-      date: nextMonthDate,
-      budget_month: nextMonthDate,
-    })
-  }
-  if (palomaAmount > 0.01) {
-    await supabase.from('revenues').insert({
-      amount: Math.round(palomaAmount * 100) / 100,
-      description: label,
-      source: 'autre',
-      who: 'paloma',
-      date: nextMonthDate,
-      budget_month: nextMonthDate,
-    })
+  const inserts: { amount: number; description: string; source: string; who: string; date: string; budget_month: string }[] = []
+  if (arthurAmount > 0.01) inserts.push({ amount: Math.round(arthurAmount * 100) / 100, description: label, source: 'autre', who: 'arthur', date: targetDate, budget_month: targetDate })
+  if (palomaAmount > 0.01) inserts.push({ amount: Math.round(palomaAmount * 100) / 100, description: label, source: 'autre', who: 'paloma', date: targetDate, budget_month: targetDate })
+
+  if (inserts.length > 0) {
+    const { error } = await db.from('revenues').insert(inserts)
+    if (error) throw new Error(friendlyError(error.message))
   }
 
   revalidatePath('/')
   revalidatePath('/revenus')
-  redirect(`/?month=${nextMonthStr}`)
+  redirect(`/?month=${targetMonthStr}`)
 }
 
 export async function setBudget(category: string, amount: number) {

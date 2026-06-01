@@ -2,7 +2,8 @@ export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES, getUserName } from '@/lib/types'
-import { parseISO, endOfMonth, format, subMonths, startOfMonth, isSameMonth } from 'date-fns'
+import { parseISO, endOfMonth, format, subMonths, addMonths } from 'date-fns'
+import { fr } from 'date-fns/locale'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
@@ -10,7 +11,7 @@ import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import CountUp from '@/components/CountUp'
 import AnimatedBar from '@/components/AnimatedBar'
 import CancelReportButton from '@/components/CancelReportButton'
-import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import ReportBalanceButton from '@/components/ReportBalanceButton'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { ChevronRight, PiggyBank } from 'lucide-react'
@@ -31,58 +32,6 @@ export default async function DashboardPage({
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const startDate = `${monthStr}-01`
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
-
-  // Carry-over automatique du mois précédent — déclenché quand on visualise le mois courant
-  const isViewingCurrentMonth = isSameMonth(selectedDate, now)
-  let carryOverJustApplied = false
-  if (isViewingCurrentMonth) {
-    try {
-      const db = getSupabaseAdmin()
-      const prevMonth = subMonths(now, 1)
-      const prevStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd')
-      const prevEnd   = format(endOfMonth(prevMonth),   'yyyy-MM-dd')
-      const thisFirst = format(startOfMonth(now),       'yyyy-MM-dd')
-
-      const { data: existing } = await db
-        .from('revenues')
-        .select('id')
-        .eq('budget_month', thisFirst)
-        .like('description', 'Report %')
-
-      if (!existing?.length) {
-        const [prevExpRes, prevRevRes, prevSavRes] = await Promise.all([
-          db.from('expenses').select('who, amount').neq('category', 'epargne')
-            .gte('date', prevStart).lte('date', prevEnd),
-          db.from('revenues').select('who, amount')
-            .gte('budget_month', prevStart).lte('budget_month', prevEnd),
-          db.from('savings').select('who, amount, type')
-            .gte('date', prevStart).lte('date', prevEnd),
-        ])
-        const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-          'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
-        const label = `Report ${monthNames[prevMonth.getMonth()]} ${prevMonth.getFullYear()}`
-        const inserts: { amount: number; description: string; source: string; who: string; date: string; budget_month: string }[] = []
-        for (const person of ['arthur', 'paloma'] as const) {
-          const rev = (prevRevRes.data ?? []).filter((r: { who: string; amount: number }) => r.who === person).reduce((s, r) => s + r.amount, 0)
-          const exp = (prevExpRes.data ?? []).filter((e: { who: string; amount: number }) => e.who === person).reduce((s, e) => s + e.amount, 0)
-          const netSav =
-            (prevSavRes.data ?? []).filter((sv: { who: string; type: string; amount: number }) => sv.who === person && sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0) -
-            (prevSavRes.data ?? []).filter((sv: { who: string; type: string; amount: number }) => sv.who === person && sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
-          const net = rev - exp - netSav
-          if (net > 0.01) {
-            inserts.push({ amount: Math.round(net * 100) / 100, description: label, source: 'autre', who: person, date: thisFirst, budget_month: thisFirst })
-          }
-        }
-        if (inserts.length > 0) {
-          const { error } = await db.from('revenues').insert(inserts)
-          if (error) console.error('[carry-over] insert error:', error.message)
-          else carryOverJustApplied = true
-        }
-      }
-    } catch (err) {
-      console.error('[carry-over] unexpected error:', err)
-    }
-  }
 
   const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
@@ -124,8 +73,14 @@ export default async function DashboardPage({
 
   const recent = realExpenses.slice(0, 5)
 
-  const monthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  // Mois précédent / suivant pour le bouton de report
+  const prevDate = subMonths(selectedDate, 1)
+  const nextDate = addMonths(selectedDate, 1)
+  const prevMonthStr = format(prevDate, 'yyyy-MM')
+  const nextMonthStr = format(nextDate, 'yyyy-MM')
+  function capitalizeFirst(s: string) { return s.charAt(0).toUpperCase() + s.slice(1) }
+  const prevMonthLabel = capitalizeFirst(format(prevDate, 'MMM yyyy', { locale: fr }))
+  const nextMonthLabel = capitalizeFirst(format(nextDate, 'MMM yyyy', { locale: fr }))
 
   // Annuler : revenus de report présents dans le mois affiché
   const reportRevenues = revenues.filter(r => r.description?.startsWith('Report '))
@@ -164,21 +119,23 @@ export default async function DashboardPage({
         </p>
       </div>
 
-      {/* Bannière report automatique */}
-      {carryOverJustApplied && (
-        <div className="animate-slide-up rounded-[16px] bg-[#F0FAF0] border border-[#C3E6C3] px-4 py-3 flex items-center gap-3" style={{ animationDelay: '110ms' }}>
-          <div className="w-7 h-7 rounded-full bg-[#2E7D32] flex items-center justify-center flex-shrink-0">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 3.5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </div>
-          <div className="flex-1">
-            <p className="text-[13px] font-semibold text-[#1B5E20]">Report du mois précédent appliqué</p>
-            <p className="text-[12px] text-[#388E3C] mt-0.5">Le solde restant de mai a été ajouté à vos revenus de juin</p>
-          </div>
+      {/* Bouton reporter le solde */}
+      {balance > 0.01 && reportRevenues.length === 0 && (
+        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
+          <ReportBalanceButton
+            sourceMonthStr={monthStr}
+            arthurAmount={Math.max(arthurNet, 0)}
+            palomaAmount={Math.max(palomaNet, 0)}
+            prevMonthStr={prevMonthStr}
+            prevMonthLabel={prevMonthLabel}
+            nextMonthStr={nextMonthStr}
+            nextMonthLabel={nextMonthLabel}
+          />
         </div>
       )}
 
       {/* Annuler un report existant dans le mois affiché */}
-      {!carryOverJustApplied && reportRevenues.length > 0 && (
+      {reportRevenues.length > 0 && (
         <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
           <CancelReportButton
             ids={reportRevenues.map(r => r.id)}
