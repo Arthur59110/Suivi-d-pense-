@@ -2,18 +2,23 @@ export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES, getUserName } from '@/lib/types'
-import { parseISO, endOfMonth, format, subMonths, addMonths } from 'date-fns'
+import { parseISO, endOfMonth, format, subMonths } from 'date-fns'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
 import { AvatarArthur, AvatarPaloma } from '@/components/Avatars'
 import CountUp from '@/components/CountUp'
 import AnimatedBar from '@/components/AnimatedBar'
-import CancelReportButton from '@/components/CancelReportButton'
-import ReportBalanceButton from '@/components/ReportBalanceButton'
 import { Suspense } from 'react'
 import Link from 'next/link'
 import { ChevronRight, PiggyBank } from 'lucide-react'
+
+const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+const MONTHS_SHORT = ['Jan.', 'Fév.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sep.', 'Oct.', 'Nov.', 'Déc.']
+
+function fmt(n: number) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -32,6 +37,56 @@ export default async function DashboardPage({
   const startDate = `${monthStr}-01`
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
 
+  // Auto-carry : quand on ouvre le mois courant, reporter automatiquement
+  // le solde du mois précédent s'il ne l'a pas encore été
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1
+  const prevDate = subMonths(selectedDate, 1)
+  const prevMonthStr = format(prevDate, 'yyyy-MM')
+  const prevReportLabel = `Report ${MONTHS_FULL[prevDate.getMonth()]} ${prevDate.getFullYear()}`
+
+  if (isCurrentMonth) {
+    const prevStart = `${prevMonthStr}-01`
+    const prevEnd = format(endOfMonth(prevDate), 'yyyy-MM-dd')
+
+    const { data: existing } = await supabase
+      .from('revenues')
+      .select('id')
+      .eq('description', prevReportLabel)
+      .eq('budget_month', startDate)
+      .limit(1)
+
+    if (!existing?.length) {
+      const [pExpRes, pRevRes, pSavRes] = await Promise.all([
+        supabase.from('expenses').select('amount, category, who').gte('date', prevStart).lte('date', prevEnd),
+        supabase.from('revenues').select('amount, who').gte('budget_month', prevStart).lte('budget_month', prevEnd),
+        supabase.from('savings').select('amount, who, type').gte('date', prevStart).lte('date', prevEnd),
+      ])
+
+      type R = { amount: number; who: string }
+      type E = { amount: number; category: string; who: string }
+      type S = { amount: number; who: string; type: string }
+
+      const pExp = ((pExpRes.data ?? []) as E[]).filter(e => e.category !== 'epargne')
+      const pRev = (pRevRes.data ?? []) as R[]
+      const pSav = (pSavRes.data ?? []) as S[]
+
+      const sumRev = (who: string) => pRev.filter(r => r.who === who).reduce((s, r) => s + r.amount, 0)
+      const sumExp = (who: string) => pExp.filter(e => e.who === who).reduce((s, e) => s + e.amount, 0)
+      const netSav = (who: string) =>
+        pSav.filter(s => s.who === who && s.type === 'deposit').reduce((a, s) => a + s.amount, 0)
+        - pSav.filter(s => s.who === who && s.type === 'withdrawal').reduce((a, s) => a + s.amount, 0)
+
+      const aNet = Math.max(sumRev('arthur') - sumExp('arthur') - netSav('arthur'), 0)
+      const pNet = Math.max(sumRev('paloma') - sumExp('paloma') - netSav('paloma'), 0)
+
+      const inserts: { amount: number; description: string; source: string; who: string; date: string; budget_month: string }[] = []
+      if (aNet > 0.01) inserts.push({ amount: Math.round(aNet * 100) / 100, description: prevReportLabel, source: 'autre', who: 'arthur', date: startDate, budget_month: startDate })
+      if (pNet > 0.01) inserts.push({ amount: Math.round(pNet * 100) / 100, description: prevReportLabel, source: 'autre', who: 'paloma', date: startDate, budget_month: startDate })
+      if (inserts.length > 0) await supabase.from('revenues').insert(inserts)
+    }
+  }
+
+  // Données du mois affiché (le report auto est déjà inséré si nécessaire)
   const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
     supabase.from('revenues').select('*').gte('budget_month', startDate).lte('budget_month', endDate).order('date', { ascending: false }),
@@ -43,16 +98,19 @@ export default async function DashboardPage({
   const savings: Saving[]   = (savingsRes.data as Saving[]   | null) ?? []
   const firstName = getUserName(user?.email ?? '')
 
-  // Jambe sortante du report : lignes "Report {ce mois}" qui ont emporté le solde vers un autre mois
-  const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  // Jambe sortante : "Report {ce mois}" inséré dans le mois suivant → déduit du solde ici
   const thisMonthReportLabel = `Report ${MONTHS_FULL[month - 1]} ${year}`
-  const { data: outData } = await supabase.from('revenues').select('*').eq('description', thisMonthReportLabel)
-  const outRows = (outData as Revenue[] | null) ?? []
+  const { data: outData } = await supabase
+    .from('revenues')
+    .select('amount, who, budget_month')
+    .eq('description', thisMonthReportLabel)
+  const outRows = (outData as Pick<Revenue, 'amount' | 'who' | 'budget_month'>[] | null) ?? []
   const reportedOut = outRows.reduce((s, r) => s + r.amount, 0)
   const reportedOutArthur = outRows.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const reportedOutPaloma = outRows.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const outTargetLabel = outRows.length > 0 && outRows[0].budget_month
-    ? `${MONTHS_FULL[parseISO(outRows[0].budget_month as string).getMonth()]} ${parseISO(outRows[0].budget_month as string).getFullYear()}`
+  const outTargetDate = outRows[0]?.budget_month ? parseISO(outRows[0].budget_month as string) : null
+  const outTargetLabel = outTargetDate
+    ? `${MONTHS_SHORT[outTargetDate.getMonth()]} ${outTargetDate.getFullYear()}`
     : ''
 
   const realExpenses = expenses.filter(e => e.category !== 'epargne')
@@ -85,25 +143,6 @@ export default async function DashboardPage({
 
   const recent = realExpenses.slice(0, 5)
 
-  // Mois précédent / suivant pour le bouton de report
-  const prevDate = subMonths(selectedDate, 1)
-  const nextDate = addMonths(selectedDate, 1)
-  const prevMonthStr = format(prevDate, 'yyyy-MM')
-  const nextMonthStr = format(nextDate, 'yyyy-MM')
-  const MONTHS_SHORT = ['Jan.', 'Fév.', 'Mars', 'Avr.', 'Mai', 'Juin', 'Juil.', 'Août', 'Sep.', 'Oct.', 'Nov.', 'Déc.']
-  const prevMonthLabel = `${MONTHS_SHORT[prevDate.getMonth()]} ${prevDate.getFullYear()}`
-  const nextMonthLabel = `${MONTHS_SHORT[nextDate.getMonth()]} ${nextDate.getFullYear()}`
-
-  // Annuler : revenus de report présents dans le mois affiché
-  const reportRevenues = revenues.filter(r => r.description?.startsWith('Report '))
-  const reportLabel = reportRevenues.length > 0
-    ? `Supprime ${reportRevenues.length > 1 ? `${reportRevenues.length} revenus` : '1 revenu'} de report`
-    : ''
-
-  function f(n: number) {
-    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-
   return (
     <div className="flex flex-col gap-6 px-5 pt-6">
 
@@ -127,44 +166,11 @@ export default async function DashboardPage({
           {balance >= 0 ? '+' : '-'}<CountUp value={balance} /> €
         </p>
         <p className="text-[13px] text-[#8A8A8A] mt-2">
-          {balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
+          {reportedOut > 0.01
+            ? `Reporté vers ${outTargetLabel}`
+            : balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
         </p>
       </div>
-
-      {/* Bouton reporter le solde */}
-      {balance > 0.01 && reportRevenues.length === 0 && reportedOut < 0.01 && (
-        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
-          <ReportBalanceButton
-            sourceMonthStr={monthStr}
-            arthurAmount={Math.max(arthurNet, 0)}
-            palomaAmount={Math.max(palomaNet, 0)}
-            prevMonthStr={prevMonthStr}
-            prevMonthLabel={prevMonthLabel}
-            nextMonthStr={nextMonthStr}
-            nextMonthLabel={nextMonthLabel}
-          />
-        </div>
-      )}
-
-      {/* Solde reporté vers un autre mois (jambe sortante) */}
-      {reportedOut > 0.01 && (
-        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
-          <CancelReportButton
-            ids={outRows.map(r => r.id)}
-            label={`Solde reporté vers ${outTargetLabel} — annuler pour le récupérer`}
-          />
-        </div>
-      )}
-
-      {/* Annuler un report existant dans le mois affiché */}
-      {reportRevenues.length > 0 && (
-        <div className="animate-slide-up" style={{ animationDelay: '110ms' }}>
-          <CancelReportButton
-            ids={reportRevenues.map(r => r.id)}
-            label={reportLabel}
-          />
-        </div>
-      )}
 
       {/* Revenus / Dépenses / Épargne */}
       <div className="grid grid-cols-3 gap-2 animate-slide-up" style={{ animationDelay: '140ms' }}>
@@ -174,7 +180,7 @@ export default async function DashboardPage({
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Revenus</p>
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
-          <p className="text-[16px] font-bold text-black mt-1 leading-tight">+{f(totalRevenues)} €</p>
+          <p className="text-[16px] font-bold text-black mt-1 leading-tight">+{fmt(totalRevenues)} €</p>
         </Link>
         <Link href="/depenses"
           className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px] transition-transform active:scale-[0.96] duration-100">
@@ -182,7 +188,7 @@ export default async function DashboardPage({
             <p className="text-[10px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Dépenses</p>
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
-          <p className="text-[16px] font-bold text-black mt-1 leading-tight">-{f(totalExpenses)} €</p>
+          <p className="text-[16px] font-bold text-black mt-1 leading-tight">-{fmt(totalExpenses)} €</p>
         </Link>
         <Link href="/epargne"
           className="rounded-[16px] bg-[#F7F7F7] p-3 flex flex-col justify-between min-h-[90px] transition-transform active:scale-[0.96] duration-100">
@@ -191,7 +197,7 @@ export default async function DashboardPage({
             <ChevronRight size={12} color="#8A8A8A" />
           </div>
           <p className="text-[16px] font-bold text-black mt-1 leading-tight">
-            {netMonthlySavings >= 0 ? '+' : ''}{f(netMonthlySavings)} €
+            {netMonthlySavings >= 0 ? '+' : ''}{fmt(netMonthlySavings)} €
           </p>
         </Link>
       </div>
@@ -216,8 +222,8 @@ export default async function DashboardPage({
             </div>
             <span className="ml-auto">
               {isOverBudget
-                ? `Dépassement ${f(totalUsed - totalRevenues)} €`
-                : `Reste ${f(balance)} €`}
+                ? `Dépassement ${fmt(totalUsed - totalRevenues)} €`
+                : `Reste ${fmt(balance)} €`}
             </span>
           </div>
         </div>
@@ -242,7 +248,7 @@ export default async function DashboardPage({
           </div>
           <div className="flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">Mis de côté ce mois</p>
-            <p className="text-[18px] font-bold text-black leading-tight mt-0.5">{f(netMonthlySavings)} €</p>
+            <p className="text-[18px] font-bold text-black leading-tight mt-0.5">{fmt(netMonthlySavings)} €</p>
           </div>
           <ChevronRight size={18} color="#8A8A8A" />
         </Link>
@@ -260,7 +266,7 @@ export default async function DashboardPage({
                 <div className="flex-1">
                   <div className="flex justify-between mb-1.5">
                     <span className="text-[14px] font-medium text-black">{cat.label}</span>
-                    <span className="text-[14px] font-semibold text-black">{f(cat.total)} €</span>
+                    <span className="text-[14px] font-semibold text-black">{fmt(cat.total)} €</span>
                   </div>
                   <AnimatedBar
                     percent={totalExpenses > 0 ? (cat.total / totalExpenses) * 100 : 0}
@@ -299,9 +305,7 @@ export default async function DashboardPage({
 function PersonCard({ name, revenues, expenses, net, isActive = false }: {
   name: string; revenues: number; expenses: number; net: number; isActive?: boolean
 }) {
-  function f(n: number) {
-    return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
+  const f = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return (
     <div className="rounded-[16px] bg-[#F7F7F7] p-4 flex flex-col gap-2 transition-transform active:scale-[0.97] duration-100">
       <div className="flex items-center justify-between">
