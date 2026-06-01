@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { Expense, Revenue, Saving } from '@/lib/types'
 import { CATEGORIES, getUserName } from '@/lib/types'
-import { parseISO, endOfMonth, format } from 'date-fns'
+import { parseISO, endOfMonth, format, subMonths, startOfMonth } from 'date-fns'
 import MonthSelector from '@/components/MonthSelector'
 import CategoryIcon from '@/components/CategoryIcon'
 import ExpenseRow from '@/components/ExpenseRow'
@@ -30,6 +30,51 @@ export default async function DashboardPage({
   const monthStr = `${year}-${String(month).padStart(2, '0')}`
   const startDate = `${monthStr}-01`
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
+
+  // Carry-over automatique du mois précédent (une seule fois, idempotent)
+  if (!monthParam) {
+    const prevMonth = subMonths(now, 1)
+    const prevStart = format(startOfMonth(prevMonth), 'yyyy-MM-dd')
+    const prevEnd   = format(endOfMonth(prevMonth),   'yyyy-MM-dd')
+
+    const { data: existingReport } = await supabase
+      .from('revenues')
+      .select('id')
+      .eq('budget_month', startDate)
+      .like('description', 'Report %')
+
+    if (!existingReport?.length) {
+      const [prevExpRes, prevRevRes, prevSavRes] = await Promise.all([
+        supabase.from('expenses').select('who, amount').neq('category', 'epargne')
+          .gte('date', prevStart).lte('date', prevEnd),
+        supabase.from('revenues').select('who, amount')
+          .gte('budget_month', prevStart).lte('budget_month', prevEnd),
+        supabase.from('savings').select('who, amount, type')
+          .gte('date', prevStart).lte('date', prevEnd),
+      ])
+      const prevMonthNames = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+        'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+      const label = `Report ${prevMonthNames[prevMonth.getMonth()]} ${prevMonth.getFullYear()}`
+      for (const person of ['arthur', 'paloma'] as const) {
+        const rev = (prevRevRes.data ?? []).filter(r => r.who === person).reduce((s: number, r: { amount: number }) => s + r.amount, 0)
+        const exp = (prevExpRes.data ?? []).filter(e => e.who === person).reduce((s: number, e: { amount: number }) => s + e.amount, 0)
+        const netSav =
+          (prevSavRes.data ?? []).filter((sv: { who: string; type: string; amount: number }) => sv.who === person && sv.type === 'deposit').reduce((s: number, sv: { amount: number }) => s + sv.amount, 0) -
+          (prevSavRes.data ?? []).filter((sv: { who: string; type: string; amount: number }) => sv.who === person && sv.type === 'withdrawal').reduce((s: number, sv: { amount: number }) => s + sv.amount, 0)
+        const net = rev - exp - netSav
+        if (net > 0.01) {
+          await supabase.from('revenues').insert({
+            amount: Math.round(net * 100) / 100,
+            description: label,
+            source: 'autre',
+            who: person,
+            date: startDate,
+            budget_month: startDate,
+          })
+        }
+      }
+    }
+  }
 
   const [expensesRes, revenuesRes, savingsRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),

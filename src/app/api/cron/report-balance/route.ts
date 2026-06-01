@@ -32,27 +32,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'Report already exists' })
   }
 
-  const [{ data: revenues }, { data: expenses }] = await Promise.all([
+  const [{ data: revenues }, { data: expenses }, { data: savingsData }] = await Promise.all([
     db.from('revenues').select('who, amount').gte('budget_month', prevStart).lte('budget_month', prevEnd),
-    db.from('expenses').select('who, amount').gte('date', prevStart).lte('date', prevEnd),
+    db.from('expenses').select('who, amount').neq('category', 'epargne').gte('date', prevStart).lte('date', prevEnd),
+    db.from('savings').select('who, amount, type').gte('date', prevStart).lte('date', prevEnd),
   ])
 
   const sum = (rows: { who: string; amount: number }[] | null, who: string) =>
     (rows ?? []).filter(r => r.who === who).reduce((s, r) => s + r.amount, 0)
+  const netSav = (who: string) =>
+    sum(savingsData?.filter(sv => sv.type === 'deposit') ?? [], who) -
+    sum(savingsData?.filter(sv => sv.type === 'withdrawal') ?? [], who)
 
-  const arthurRev  = sum(revenues, 'arthur')
-  const palomaRev  = sum(revenues, 'paloma')
-  const arthurExp  = sum(expenses, 'arthur')
-  const palomaExp  = sum(expenses, 'paloma')
+  const arthurAmount = Math.max(sum(revenues, 'arthur') - sum(expenses, 'arthur') - netSav('arthur'), 0)
+  const palomaAmount = Math.max(sum(revenues, 'paloma') - sum(expenses, 'paloma') - netSav('paloma'), 0)
 
-  const balance    = (arthurRev + palomaRev) - (arthurExp + palomaExp)
-  if (balance <= 0) {
+  if (arthurAmount + palomaAmount <= 0) {
     return NextResponse.json({ message: 'No positive balance' })
   }
-
-  const arthurNet    = arthurRev - arthurExp
-  const arthurAmount = Math.min(Math.max(arthurNet, 0), balance)
-  const palomaAmount = balance - arthurAmount
 
   if (arthurAmount > 0.01) {
     await db.from('revenues').insert({
