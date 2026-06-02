@@ -6,9 +6,10 @@ import RevenueRow from '@/components/RevenueRow'
 import PersonFilter from '@/components/PersonFilter'
 import SourceFilter from '@/components/SourceFilter'
 import PageSwitcher from '@/components/PageSwitcher'
+import MonthSelector from '@/components/MonthSelector'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
-import { format, parseISO, isToday, isYesterday, isThisWeek, isThisYear, startOfDay } from 'date-fns'
+import { format, parseISO, endOfMonth, isToday, isYesterday, isThisWeek, isThisYear, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { Suspense } from 'react'
 
@@ -35,12 +36,17 @@ function groupLabel(dateStr: string): string {
 export default async function RevenusPage({
   searchParams,
 }: {
-  searchParams: Promise<{ who?: string; src?: string }>
+  searchParams: Promise<{ who?: string; src?: string; month?: string }>
 }) {
-  const { who: whoFilter, src: srcFilter } = await searchParams
+  const { who: whoFilter, src: srcFilter, month: monthParam } = await searchParams
   const supabase = await getSupabaseServer()
 
-  let query = supabase.from('revenues').select('*').order('date', { ascending: false })
+  const selectedDate = monthParam ? parseISO(`${monthParam}-01`) : new Date()
+  const startDate = format(selectedDate, 'yyyy-MM-01')
+  const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
+
+  let query = supabase.from('revenues').select('*')
+    .gte('budget_month', startDate).lte('budget_month', endDate).order('date', { ascending: false })
   if (whoFilter && whoFilter !== 'all') query = query.eq('who', whoFilter)
   if (srcFilter) query = query.eq('source', srcFilter)
 
@@ -72,6 +78,13 @@ export default async function RevenusPage({
         >
           <Plus size={20} color="white" />
         </Link>
+      </div>
+
+      {/* Sélecteur de mois */}
+      <div className="px-5 flex justify-center">
+        <Suspense fallback={null}>
+          <MonthSelector />
+        </Suspense>
       </div>
 
       {/* Carte récap */}

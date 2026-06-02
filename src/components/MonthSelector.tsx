@@ -16,7 +16,9 @@ export default function MonthSelector() {
   function navigate(direction: 'prev' | 'next') {
     const newDate = direction === 'prev' ? subMonths(currentDate, 1) : addMonths(currentDate, 1)
     const newMonth = format(newDate, 'yyyy-MM')
-    router.push(`?month=${newMonth}`)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('month', newMonth)
+    router.push(`?${params.toString()}`)
   }
 
   return (

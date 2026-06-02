@@ -8,7 +8,9 @@ import ExpenseRow from '@/components/ExpenseRow'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import PageSwitcher from '@/components/PageSwitcher'
-import { format, parseISO, isToday, isYesterday, isThisWeek, isThisYear, startOfDay } from 'date-fns'
+import MonthSelector from '@/components/MonthSelector'
+import { Suspense } from 'react'
+import { format, parseISO, endOfMonth, isToday, isYesterday, isThisWeek, isThisYear, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 function formatAmount(n: number) {
@@ -34,12 +36,17 @@ function groupLabel(dateStr: string): string {
 export default async function DepensesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ who?: string; cat?: string; type?: string }>
+  searchParams: Promise<{ who?: string; cat?: string; type?: string; month?: string }>
 }) {
-  const { who: whoFilter, cat: catFilter, type: typeFilter } = await searchParams
+  const { who: whoFilter, cat: catFilter, type: typeFilter, month: monthParam } = await searchParams
   const supabase = await getSupabaseServer()
 
-  let query = supabase.from('expenses').select('*').neq('category', 'epargne').order('date', { ascending: false })
+  const selectedDate = monthParam ? parseISO(`${monthParam}-01`) : new Date()
+  const startDate = format(selectedDate, 'yyyy-MM-01')
+  const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
+
+  let query = supabase.from('expenses').select('*').neq('category', 'epargne')
+    .gte('date', startDate).lte('date', endDate).order('date', { ascending: false })
   if (whoFilter && whoFilter !== 'all') query = query.eq('who', whoFilter)
   if (catFilter) query = query.eq('category', catFilter)
   if (typeFilter === 'commune') query = query.eq('is_personal', false)
@@ -76,6 +83,13 @@ export default async function DepensesPage({
         >
           <Plus size={20} color="white" />
         </Link>
+      </div>
+
+      {/* Sélecteur de mois */}
+      <div className="px-5 flex justify-center">
+        <Suspense fallback={null}>
+          <MonthSelector />
+        </Suspense>
       </div>
 
       {/* Carte récap */}
@@ -132,6 +146,7 @@ export default async function DepensesPage({
             const params = new URLSearchParams()
             if (whoFilter && whoFilter !== 'all') params.set('who', whoFilter)
             if (catFilter) params.set('cat', catFilter)
+            if (monthParam) params.set('month', monthParam)
             if (val) params.set('type', val)
             const href = `/depenses${params.size ? `?${params}` : ''}`
             return (
