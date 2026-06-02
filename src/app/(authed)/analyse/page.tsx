@@ -24,6 +24,8 @@ import RepartitionCard from '@/components/RepartitionCard'
 import { Suspense } from 'react'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
+const MONTHS_FULL = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+
 function formatAmount(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -70,12 +72,19 @@ export default async function AnalysePage({
   ])
 
   const allExpenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
-  // Les reports de solde ne sont pas de vrais revenus : on les exclut de l'analyse
-  const allRevenues: Revenue[] = ((revenuesRes.data as Revenue[] | null) ?? [])
-    .filter(r => !(r.description?.startsWith('Report ') ?? false))
+  const allRevenues: Revenue[] = (revenuesRes.data as Revenue[] | null) ?? []
   const allSavings: Saving[] = (savingsRes.data as Saving[] | null) ?? []
   const budgets: Budget[] = (budgetsRes.data as Budget[] | null) ?? []
   const budgetMap = new Map(budgets.map(b => [b.category, Number(b.amount)]))
+
+  let reportedOut = 0
+  if (view === 'mois') {
+    const refYear = referenceDate.getFullYear()
+    const refMonth = referenceDate.getMonth() + 1
+    const label = `Report ${MONTHS_FULL[refMonth - 1]} ${refYear}`
+    const { data: outData } = await supabase.from('revenues').select('amount').eq('description', label)
+    reportedOut = ((outData ?? []) as { amount: number }[]).reduce((s, r) => s + r.amount, 0)
+  }
 
   return (
     <div className="flex flex-col gap-5 px-5 pt-6">
@@ -96,12 +105,13 @@ export default async function AnalysePage({
           revenues={allRevenues}
           savings={allSavings}
           budgets={budgetMap}
+          reportedOut={reportedOut}
         />
       ) : (
         <YearlyView
           referenceDate={referenceDate}
           expenses={allExpenses}
-          revenues={allRevenues}
+          revenues={allRevenues.filter(r => !(r.description?.startsWith('Report ') ?? false))}
           savings={allSavings}
         />
       )}
@@ -115,15 +125,19 @@ function MonthlyView({
   revenues,
   savings,
   budgets,
+  reportedOut = 0,
 }: {
   referenceDate: Date
   expenses: Expense[]
   revenues: Revenue[]
   savings: Saving[]
   budgets: Map<string, number>
+  reportedOut?: number
 }) {
+  const isReport = (r: Revenue) => r.description?.startsWith('Report ') ?? false
   const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate) && e.category !== 'epargne')
-  const monthRevenues = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate))
+  const monthRevenues = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate) && !isReport(r))
+  const monthReportRows = revenues.filter(r => isSameMonth(parseISO(r.date), referenceDate) && isReport(r))
   const monthSavings = savings.filter(s => isSameMonth(parseISO(s.date), referenceDate))
 
   const prevMonth = subMonths(referenceDate, 1)
@@ -131,8 +145,9 @@ function MonthlyView({
 
   const totalExpenses = monthExpenses.reduce((s, e) => s + e.amount, 0)
   const totalRevenues = monthRevenues.reduce((s, r) => s + r.amount, 0)
+  const reportIn = monthReportRows.reduce((s, r) => s + r.amount, 0)
   const totalSavings = monthSavings.reduce((s, sv) => s + sv.amount, 0)
-  const balance = totalRevenues - totalExpenses - totalSavings
+  const balance = totalRevenues + reportIn - totalExpenses - totalSavings - reportedOut
   const prevTotal = prevExpensesArr.reduce((s, e) => s + e.amount, 0)
   const variation = prevTotal > 0 ? ((totalExpenses - prevTotal) / prevTotal) * 100 : 0
 
@@ -154,7 +169,7 @@ function MonthlyView({
 
   const topExpenses = [...monthExpenses].sort((a, b) => b.amount - a.amount).slice(0, 3)
 
-  if (monthExpenses.length === 0 && monthRevenues.length === 0 && monthSavings.length === 0) {
+  if (monthExpenses.length === 0 && monthRevenues.length === 0 && monthReportRows.length === 0 && monthSavings.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <p className="text-[16px] text-[#8A8A8A]">Aucune donnée pour ce mois</p>
@@ -174,6 +189,11 @@ function MonthlyView({
         >
           {balance >= 0 ? '+' : ''}{formatAmount(balance)} €
         </p>
+        {reportedOut > 0.01 ? (
+          <p className="text-[11px] text-[#8A8A8A] mt-1">Solde reporté au mois suivant</p>
+        ) : reportIn > 0.01 ? (
+          <p className="text-[11px] text-[#8A8A8A] mt-1">Dont +{formatAmount(reportIn)} € reporté du mois précédent</p>
+        ) : null}
         <div className="flex gap-3 mt-4">
           <div className="flex-1">
             <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Revenus</p>
