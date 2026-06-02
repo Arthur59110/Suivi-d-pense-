@@ -113,17 +113,27 @@ export default async function DashboardPage({
     ? `${MONTHS_SHORT[outTargetDate.getMonth()]} ${outTargetDate.getFullYear()}`
     : ''
 
+  // Le report entrant n'est pas un vrai revenu : on l'isole pour qu'il alimente
+  // le solde sans gonfler le total des revenus du mois
+  const isReport = (r: Revenue) => r.description?.startsWith('Report ') ?? false
+  const realRevenues = revenues.filter(r => !isReport(r))
+  const reportInRows = revenues.filter(isReport)
+  const reportIn = reportInRows.reduce((s, r) => s + r.amount, 0)
+  const reportInArthur = reportInRows.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
+  const reportInPaloma = reportInRows.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
+
   const realExpenses = expenses.filter(e => e.category !== 'epargne')
   const totalExpenses = realExpenses.reduce((s, e) => s + e.amount, 0)
-  const totalRevenues = revenues.reduce((s, r) => s + r.amount, 0)
+  const totalRevenues = realRevenues.reduce((s, r) => s + r.amount, 0)
   const totalSavingsDeposited = savings.filter(sv => sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
   const totalSavingsWithdrawn = savings.filter(sv => sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
   const netMonthlySavings = totalSavingsDeposited - totalSavingsWithdrawn
-  const rawBalance = totalRevenues - totalExpenses - netMonthlySavings - reportedOut
+  const availableRevenues = totalRevenues + reportIn
+  const rawBalance = availableRevenues - totalExpenses - netMonthlySavings - reportedOut
   const balance = Math.abs(rawBalance) < 0.005 ? 0 : rawBalance
   const totalUsed = totalExpenses + netMonthlySavings + reportedOut
-  const budgetPercent = totalRevenues > 0 ? Math.min((totalUsed / totalRevenues) * 100, 100) : 0
-  const isOverBudget = totalUsed > totalRevenues && totalRevenues > 0
+  const budgetPercent = availableRevenues > 0 ? Math.min((totalUsed / availableRevenues) * 100, 100) : 0
+  const isOverBudget = totalUsed > availableRevenues && availableRevenues > 0
 
   const arthurSavings = savings.filter(sv => sv.who === 'arthur' && sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
     - savings.filter(sv => sv.who === 'arthur' && sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
@@ -131,10 +141,10 @@ export default async function DashboardPage({
     - savings.filter(sv => sv.who === 'paloma' && sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
   const arthurExpenses = realExpenses.filter(e => e.who === 'arthur').reduce((s, e) => s + e.amount, 0)
   const palomaExpenses = realExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
-  const arthurRevenues = revenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
-  const palomaRevenues = revenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const arthurNet = arthurRevenues - arthurExpenses - arthurSavings - reportedOutArthur
-  const palomaNet = palomaRevenues - palomaExpenses - palomaSavings - reportedOutPaloma
+  const arthurRevenues = realRevenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
+  const palomaRevenues = realRevenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
+  const arthurNet = arthurRevenues + reportInArthur - arthurExpenses - arthurSavings - reportedOutArthur
+  const palomaNet = palomaRevenues + reportInPaloma - palomaExpenses - palomaSavings - reportedOutPaloma
 
   const categoryTotals = CATEGORIES.filter(c => c.value !== 'epargne').map(cat => ({
     ...cat,
@@ -168,7 +178,9 @@ export default async function DashboardPage({
         <p className="text-[13px] text-[#8A8A8A] mt-2">
           {reportedOut > 0.01
             ? `Reporté vers ${outTargetLabel}`
-            : balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
+            : reportIn > 0.01
+              ? `Dont +${fmt(reportIn)} € reporté du mois précédent`
+              : balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
         </p>
       </div>
 

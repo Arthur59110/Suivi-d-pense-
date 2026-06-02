@@ -46,7 +46,9 @@ export default async function RevenusPage({
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
 
   let query = supabase.from('revenues').select('*')
-    .gte('budget_month', startDate).lte('budget_month', endDate).order('date', { ascending: false })
+    .gte('budget_month', startDate).lte('budget_month', endDate)
+    .not('description', 'like', 'Report %')
+    .order('date', { ascending: false })
   if (whoFilter && whoFilter !== 'all') query = query.eq('who', whoFilter)
   if (srcFilter) query = query.eq('source', srcFilter)
 

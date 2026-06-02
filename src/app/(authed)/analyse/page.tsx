@@ -71,7 +71,9 @@ export default async function AnalysePage({
   ])
 
   const allExpenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
-  const allRevenues: Revenue[] = (revenuesRes.data as Revenue[] | null) ?? []
+  // Les reports de solde ne sont pas de vrais revenus : on les exclut de l'analyse
+  const allRevenues: Revenue[] = ((revenuesRes.data as Revenue[] | null) ?? [])
+    .filter(r => !(r.description?.startsWith('Report ') ?? false))
   const allSavings: Saving[] = (savingsRes.data as Saving[] | null) ?? []
   const budgets: Budget[] = (budgetsRes.data as Budget[] | null) ?? []
   const budgetMap = new Map(budgets.map(b => [b.category, Number(b.amount)]))
