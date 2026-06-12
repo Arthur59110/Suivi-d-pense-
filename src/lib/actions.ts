@@ -364,11 +364,15 @@ export async function createExpenseNote(data: ExpenseNoteFormValues) {
   const parsed = expenseNoteSchema.safeParse(data)
   if (!parsed.success) throw new Error('Données invalides')
   const supabase = await getSupabaseServer()
-  const { error } = await supabase.from('expense_notes').insert(parsed.data)
+  const isReimb = parsed.data.type === 'reimbursement'
+  const noteData = isReimb
+    ? { ...parsed.data, reimbursed: true, reimbursed_date: parsed.data.date }
+    : { ...parsed.data, reimbursed: false }
+  const { error } = await supabase.from('expense_notes').insert(noteData)
   if (error) throw new Error(friendlyError(error.message))
   await notifyArthurIfPaloma({
-    title: 'Paloma a ajouté une note de frais',
-    body: `${parsed.data.description || 'Note de frais'} · ${fmtAmount(parsed.data.amount)} €`,
+    title: isReimb ? 'Paloma a reçu un remboursement pro' : 'Paloma a ajouté une note de frais',
+    body: `${parsed.data.description || (isReimb ? 'Remboursement' : 'Note de frais')} · ${isReimb ? '+' : ''}${fmtAmount(parsed.data.amount)} €`,
     url: '/notes-frais',
   })
   revalidatePath('/')

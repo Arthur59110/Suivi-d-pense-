@@ -85,15 +85,17 @@ export default async function AnalysePage({
     const label = `Report ${MONTHS_FULL[refMonth - 1]} ${refYear}`
     const startMonth = format(startOfMonth(referenceDate), 'yyyy-MM-dd')
     const endMonth = format(endOfMonth(referenceDate), 'yyyy-MM-dd')
-    const [outRes, advRes, reimbRes] = await Promise.all([
+    const [outRes, notesByDateRes, notesAdvReimbRes] = await Promise.all([
       supabase.from('revenues').select('amount').eq('description', label),
-      supabase.from('expense_notes').select('amount').gte('date', startMonth).lte('date', endMonth),
-      supabase.from('expense_notes').select('amount').gte('reimbursed_date', startMonth).lte('reimbursed_date', endMonth),
+      supabase.from('expense_notes').select('amount, type').gte('date', startMonth).lte('date', endMonth),
+      supabase.from('expense_notes').select('amount').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', startMonth).lte('reimbursed_date', endMonth),
     ])
     reportedOut = ((outRes.data ?? []) as { amount: number }[]).reduce((s, r) => s + r.amount, 0)
-    const advTotal = ((advRes.data ?? []) as { amount: number }[]).reduce((s, n) => s + n.amount, 0)
-    const reimbTotal = ((reimbRes.data ?? []) as { amount: number }[]).reduce((s, n) => s + n.amount, 0)
-    notesNetImpact = advTotal - reimbTotal
+    const notesByDate = (notesByDateRes.error ? [] : (notesByDateRes.data ?? [])) as { amount: number; type: string }[]
+    const advTotal = notesByDate.filter(n => n.type === 'advance').reduce((s, n) => s + n.amount, 0)
+    const directReimbTotal = notesByDate.filter(n => n.type === 'reimbursement').reduce((s, n) => s + n.amount, 0)
+    const advReimbTotal = (notesAdvReimbRes.error ? [] : (notesAdvReimbRes.data ?? [])).reduce((s: number, n: { amount: number }) => s + n.amount, 0)
+    notesNetImpact = advTotal - (advReimbTotal + directReimbTotal)
   }
 
   return (

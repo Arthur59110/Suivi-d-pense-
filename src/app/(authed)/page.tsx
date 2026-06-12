@@ -57,24 +57,27 @@ export default async function DashboardPage({
       .limit(1)
 
     if (!existing?.length) {
-      const [pExpRes, pRevRes, pSavRes, pNotesAdvRes, pNotesReimbRes] = await Promise.all([
+      const [pExpRes, pRevRes, pSavRes, pNotesByDateRes, pNotesAdvReimbRes] = await Promise.all([
         supabase.from('expenses').select('amount, category, who').gte('date', prevStart).lte('date', prevEnd),
         supabase.from('revenues').select('amount, who').gte('budget_month', prevStart).lte('budget_month', prevEnd),
         supabase.from('savings').select('amount, who, type').gte('date', prevStart).lte('date', prevEnd),
-        supabase.from('expense_notes').select('amount, who').gte('date', prevStart).lte('date', prevEnd),
-        supabase.from('expense_notes').select('amount, who').gte('reimbursed_date', prevStart).lte('reimbursed_date', prevEnd),
+        supabase.from('expense_notes').select('amount, who, type').gte('date', prevStart).lte('date', prevEnd),
+        supabase.from('expense_notes').select('amount, who').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', prevStart).lte('reimbursed_date', prevEnd),
       ])
 
       type R = { amount: number; who: string }
       type E = { amount: number; category: string; who: string }
       type S = { amount: number; who: string; type: string }
-      type N = { amount: number; who: string }
+      type N = { amount: number; who: string; type?: string }
 
       const pExp = ((pExpRes.data ?? []) as E[]).filter(e => e.category !== 'epargne')
       const pRev = (pRevRes.data ?? []) as R[]
       const pSav = (pSavRes.data ?? []) as S[]
-      const pNotesAdv = (pNotesAdvRes.data ?? []) as N[]
-      const pNotesReimb = (pNotesReimbRes.data ?? []) as N[]
+      const pNotesByDate = (pNotesByDateRes.error ? [] : (pNotesByDateRes.data ?? [])) as N[]
+      const pNotesAdvReimb = (pNotesAdvReimbRes.error ? [] : (pNotesAdvReimbRes.data ?? [])) as N[]
+
+      const pNotesAdv = pNotesByDate.filter(n => n.type === 'advance')
+      const pNotesDirectReimb = pNotesByDate.filter(n => n.type === 'reimbursement')
 
       const sumRev = (who: string) => pRev.filter(r => r.who === who).reduce((s, r) => s + r.amount, 0)
       const sumExp = (who: string) => pExp.filter(e => e.who === who).reduce((s, e) => s + e.amount, 0)
@@ -83,7 +86,8 @@ export default async function DashboardPage({
         - pSav.filter(s => s.who === who && s.type === 'withdrawal').reduce((a, s) => a + s.amount, 0)
       const notesImpact = (who: string) =>
         pNotesAdv.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
-        - pNotesReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
+        - pNotesAdvReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
+        - pNotesDirectReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
 
       const aNet = Math.max(sumRev('arthur') - sumExp('arthur') - netSav('arthur') - notesImpact('arthur'), 0)
       const pNet = Math.max(sumRev('paloma') - sumExp('paloma') - netSav('paloma') - notesImpact('paloma'), 0)
@@ -96,21 +100,22 @@ export default async function DashboardPage({
   }
 
   // Données du mois affiché (le report auto est déjà inséré si nécessaire)
-  const [expensesRes, revenuesRes, savingsRes, notesAdvancedRes, notesReimbursedRes] = await Promise.all([
+  const [expensesRes, revenuesRes, savingsRes, notesByDateRes, notesAdvReimbRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
     supabase.from('revenues').select('*').gte('budget_month', startDate).lte('budget_month', endDate).order('date', { ascending: false }),
     supabase.from('savings').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
-    // Notes de frais avancées ce mois (peu importe l'état de remboursement)
+    // Notes créées ce mois (avances type + remboursements directs type)
     supabase.from('expense_notes').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
-    // Notes remboursées ce mois (la note peut avoir été avancée n'importe quand)
-    supabase.from('expense_notes').select('*').gte('reimbursed_date', startDate).lte('reimbursed_date', endDate),
+    // Avances remboursées ce mois (reimbursed_date in range)
+    supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', startDate).lte('reimbursed_date', endDate),
   ])
 
   const expenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
   const revenues: Revenue[] = (revenuesRes.data as Revenue[] | null) ?? []
   const savings: Saving[]   = (savingsRes.data as Saving[]   | null) ?? []
-  const notesAdvanced: ExpenseNote[] = (notesAdvancedRes.data as ExpenseNote[] | null) ?? []
-  const notesReimbursedThisMonth: ExpenseNote[] = (notesReimbursedRes.data as ExpenseNote[] | null) ?? []
+  // Graceful degradation si la table n'existe pas encore
+  const notesByDate: ExpenseNote[] = notesByDateRes.error ? [] : ((notesByDateRes.data as ExpenseNote[] | null) ?? [])
+  const notesAdvReimb: ExpenseNote[] = notesAdvReimbRes.error ? [] : ((notesAdvReimbRes.data as ExpenseNote[] | null) ?? [])
   const firstName = getUserName(user?.email ?? '')
 
   // Jambe sortante : "Report {ce mois}" inséré dans le mois suivant → déduit du solde ici
@@ -144,11 +149,14 @@ export default async function DashboardPage({
   const totalSavingsWithdrawn = savings.filter(sv => sv.type === 'withdrawal').reduce((s, sv) => s + sv.amount, 0)
   const netMonthlySavings = totalSavingsDeposited - totalSavingsWithdrawn
 
-  // Notes de frais : avances de ce mois (sortie) - remboursements reçus ce mois (entrée)
-  const notesAdvancedTotal = notesAdvanced.reduce((s, n) => s + n.amount, 0)
-  const notesReimbursedTotal = notesReimbursedThisMonth.reduce((s, n) => s + n.amount, 0)
+  // Notes de frais : type-aware
+  // avances ce mois - (avances remboursées ce mois + remboursements directs ce mois)
+  const notesAdvancedThisMonth = notesByDate.filter(n => n.type === 'advance')
+  const notesDirectReimbThisMonth = notesByDate.filter(n => n.type === 'reimbursement')
+  const notesAdvancedTotal = notesAdvancedThisMonth.reduce((s, n) => s + n.amount, 0)
+  const notesReimbursedTotal = notesAdvReimb.reduce((s, n) => s + n.amount, 0) + notesDirectReimbThisMonth.reduce((s, n) => s + n.amount, 0)
   const notesNetImpact = notesAdvancedTotal - notesReimbursedTotal
-  const notesPendingTotal = notesAdvanced.filter(n => !n.reimbursed).reduce((s, n) => s + n.amount, 0)
+  const notesPendingTotal = notesAdvancedThisMonth.filter(n => !n.reimbursed).reduce((s, n) => s + n.amount, 0)
 
   const availableRevenues = totalRevenues + reportIn
   const rawBalance = availableRevenues - totalExpenses - netMonthlySavings - reportedOut - notesNetImpact
@@ -165,12 +173,14 @@ export default async function DashboardPage({
   const palomaExpenses = realExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
   const arthurRevenues = realRevenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const palomaRevenues = realRevenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const notesAdvancedArthur = notesAdvanced.filter(n => n.who === 'arthur').reduce((s, n) => s + n.amount, 0)
-  const notesAdvancedPaloma = notesAdvanced.filter(n => n.who === 'paloma').reduce((s, n) => s + n.amount, 0)
-  const notesReimbursedArthur = notesReimbursedThisMonth.filter(n => n.who === 'arthur').reduce((s, n) => s + n.amount, 0)
-  const notesReimbursedPaloma = notesReimbursedThisMonth.filter(n => n.who === 'paloma').reduce((s, n) => s + n.amount, 0)
-  const notesImpactArthur = notesAdvancedArthur - notesReimbursedArthur
-  const notesImpactPaloma = notesAdvancedPaloma - notesReimbursedPaloma
+  const notesImpactByWho = (who: string) => {
+    const adv = notesAdvancedThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
+    const reimb = notesAdvReimb.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
+      + notesDirectReimbThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
+    return adv - reimb
+  }
+  const notesImpactArthur = notesImpactByWho('arthur')
+  const notesImpactPaloma = notesImpactByWho('paloma')
 
   const arthurNet = arthurRevenues + reportInArthur - arthurExpenses - arthurSavings - reportedOutArthur - notesImpactArthur
   const palomaNet = palomaRevenues + reportInPaloma - palomaExpenses - palomaSavings - reportedOutPaloma - notesImpactPaloma
@@ -286,7 +296,7 @@ export default async function DashboardPage({
           reimbursedThisMonth={notesReimbursedTotal}
           pending={notesPendingTotal}
           netImpact={notesNetImpact}
-          count={notesAdvanced.length}
+          count={notesByDate.length}
         />
       </div>
 

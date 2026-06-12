@@ -79,6 +79,7 @@ export interface ExpenseNote {
   amount: number
   description: string
   who: 'arthur' | 'paloma'
+  type: 'advance' | 'reimbursement'
   date: string
   reimbursed: boolean
   reimbursed_date: string | null

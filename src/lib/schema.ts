@@ -44,6 +44,7 @@ export const expenseNoteSchema = z.object({
   amount: z.number().positive('Le montant doit être positif'),
   description: z.string(),
   who: z.enum(['arthur', 'paloma']).default('paloma'),
+  type: z.enum(['advance', 'reimbursement']).default('advance'),
   date: z.string().min(1, 'La date est requise'),
 })
 

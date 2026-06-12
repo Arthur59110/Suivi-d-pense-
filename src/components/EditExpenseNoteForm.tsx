@@ -27,7 +27,7 @@ export default function EditExpenseNoteForm({ note }: { note: ExpenseNote }) {
     }
     startTransition(async () => {
       try {
-        await updateExpenseNote(note.id, { amount: numAmount, description, who, date })
+        await updateExpenseNote(note.id, { amount: numAmount, description, who, type: note.type, date })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         if (msg.includes('NEXT_REDIRECT')) throw err

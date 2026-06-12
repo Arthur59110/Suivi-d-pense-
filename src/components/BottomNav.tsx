@@ -42,10 +42,13 @@ function NavLink({ href, icon: Icon, label, active }: NavItem) {
 
 export default function BottomNav() {
   const pathname = usePathname()
-  const isHome     = pathname === '/'
-  const isDepenses = pathname.startsWith('/depenses') && !pathname.includes('/new')
-  const isAnalyse  = pathname.startsWith('/analyse')
-  const isEpargne  = pathname.startsWith('/epargne')
+  const isHome      = pathname === '/'
+  const isDepenses  = pathname.startsWith('/depenses') && !pathname.includes('/new')
+  const isAnalyse   = pathname.startsWith('/analyse')
+  const isEpargne   = pathname.startsWith('/epargne')
+  const isNotesFrais = pathname === '/notes-frais'
+
+  const addHref = isNotesFrais ? '/notes-frais/nouveau' : '/ajouter'
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#E5E5E5] bg-white safe-bottom">
@@ -56,7 +59,7 @@ export default function BottomNav() {
         </div>
 
         <Link
-          href="/ajouter"
+          href={addHref}
           className="absolute left-1/2 -translate-x-1/2 -top-5 flex items-center justify-center w-[56px] h-[56px] rounded-full bg-black transition-transform duration-100 active:scale-90"
           style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.30)' }}
         >

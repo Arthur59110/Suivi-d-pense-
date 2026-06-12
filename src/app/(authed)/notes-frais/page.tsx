@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic'
 import { getSupabaseServer } from '@/lib/supabase/server'
 import type { ExpenseNote } from '@/lib/types'
-import { ChevronLeft, Plus, Receipt } from 'lucide-react'
+import { ChevronLeft, Receipt } from 'lucide-react'
 import Link from 'next/link'
 import ExpenseNoteRow from '@/components/ExpenseNoteRow'
 import MonthSelector from '@/components/MonthSelector'
@@ -24,29 +24,42 @@ export default async function NotesFraisPage({
   const startDate = format(selectedDate, 'yyyy-MM-01')
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
 
-  const [advancedRes, reimbursedRes, allPendingRes] = await Promise.all([
+  const [notesByDateRes, advReimbRes, allPendingRes] = await Promise.all([
+    // Notes créées ce mois (avances ET remboursements directs)
     supabase.from('expense_notes').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
-    supabase.from('expense_notes').select('*').gte('reimbursed_date', startDate).lte('reimbursed_date', endDate).order('reimbursed_date', { ascending: false }),
-    supabase.from('expense_notes').select('*').eq('reimbursed', false).order('date', { ascending: false }),
+    // Avances remboursées ce mois (reimbursed_date in range)
+    supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', startDate).lte('reimbursed_date', endDate).order('reimbursed_date', { ascending: false }),
+    // Toutes les avances non remboursées (toutes périodes)
+    supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', false).order('date', { ascending: false }),
   ])
 
-  const advanced: ExpenseNote[] = (advancedRes.data as ExpenseNote[] | null) ?? []
-  const reimbursedThisMonth: ExpenseNote[] = (reimbursedRes.data as ExpenseNote[] | null) ?? []
-  const allPending: ExpenseNote[] = (allPendingRes.data as ExpenseNote[] | null) ?? []
+  const notesByDate: ExpenseNote[] = notesByDateRes.error ? [] : ((notesByDateRes.data as ExpenseNote[] | null) ?? [])
+  const advReimb: ExpenseNote[] = advReimbRes.error ? [] : ((advReimbRes.data as ExpenseNote[] | null) ?? [])
+  const allPending: ExpenseNote[] = allPendingRes.error ? [] : ((allPendingRes.data as ExpenseNote[] | null) ?? [])
 
-  const advancedTotal = advanced.reduce((s, n) => s + n.amount, 0)
-  const reimbursedTotal = reimbursedThisMonth.reduce((s, n) => s + n.amount, 0)
-  const allPendingTotal = allPending.reduce((s, n) => s + n.amount, 0)
+  // Calculs
+  const advancedThisMonth = notesByDate.filter(n => n.type === 'advance')
+  const directReimbThisMonth = notesByDate.filter(n => n.type === 'reimbursement')
+  const advancedTotal = advancedThisMonth.reduce((s, n) => s + n.amount, 0)
+  const advReimbTotal = advReimb.reduce((s, n) => s + n.amount, 0)
+  const directReimbTotal = directReimbThisMonth.reduce((s, n) => s + n.amount, 0)
+  const reimbursedTotal = advReimbTotal + directReimbTotal
   const netImpact = advancedTotal - reimbursedTotal
+  const allPendingTotal = allPending.reduce((s, n) => s + n.amount, 0)
 
-  // Notes affichées : avancées ce mois + remboursées ce mois (dédupliquées)
-  const idsAdvanced = new Set(advanced.map(n => n.id))
-  const reimbursedNotInAdvanced = reimbursedThisMonth.filter(n => !idsAdvanced.has(n.id))
-  const allDisplayed = [...advanced, ...reimbursedNotInAdvanced]
+  // Notes affichées ce mois : avances créées ce mois + avances remboursées ce mois (si pas déjà dans notesByDate) + remboursements directs
+  const idsInByDate = new Set(notesByDate.map(n => n.id))
+  const extraReimb = advReimb.filter(n => !idsInByDate.has(n.id))
+  const allDisplayed = [...notesByDate, ...extraReimb]
+    .sort((a, b) => {
+      const da = a.type === 'advance' && a.reimbursed && a.reimbursed_date ? a.reimbursed_date : a.date
+      const db = b.type === 'advance' && b.reimbursed && b.reimbursed_date ? b.reimbursed_date : b.date
+      return db.localeCompare(da)
+    })
 
   return (
     <div className="flex flex-col gap-5 pt-6">
-      {/* Header */}
+      {/* Header — sans bouton "+", le BottomNav le gère */}
       <div className="px-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Link href="/" className="p-1">
@@ -54,12 +67,6 @@ export default async function NotesFraisPage({
           </Link>
           <h1 className="text-[22px] font-bold text-black">Notes de frais</h1>
         </div>
-        <Link
-          href="/notes-frais/nouveau"
-          className="flex items-center justify-center w-[40px] h-[40px] rounded-full bg-black"
-        >
-          <Plus size={20} color="white" />
-        </Link>
       </div>
 
       {/* Sélecteur de mois */}
@@ -81,23 +88,23 @@ export default async function NotesFraisPage({
           >
             {netImpact >= 0 ? '-' : '+'}{fmt(Math.abs(netImpact))} €
           </p>
-          <p className="text-[12px] text-[#8A8A8A] mt-2">
-            sur le solde du mois
-          </p>
-          <div className="flex gap-3 mt-4 pt-4 border-t border-[#E8E8E8]">
-            <div className="flex-1">
-              <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Avancées</p>
-              <p className="text-[15px] font-semibold text-black mt-0.5">-{fmt(advancedTotal)} €</p>
+          <p className="text-[12px] text-[#8A8A8A] mt-2">sur le solde du mois</p>
+          {(advancedTotal > 0 || reimbursedTotal > 0) && (
+            <div className="flex gap-3 mt-4 pt-4 border-t border-[#E8E8E8]">
+              <div className="flex-1">
+                <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Avancées</p>
+                <p className="text-[15px] font-semibold text-black mt-0.5">-{fmt(advancedTotal)} €</p>
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Remboursées</p>
+                <p className="text-[15px] font-semibold text-black mt-0.5">+{fmt(reimbursedTotal)} €</p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-[10px] text-[#8A8A8A] uppercase tracking-[0.5px]">Remboursées</p>
-              <p className="text-[15px] font-semibold text-black mt-0.5">+{fmt(reimbursedTotal)} €</p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* En attente toutes périodes */}
+      {/* Alerte total en attente (toutes périodes) */}
       {allPendingTotal > 0 && (
         <div className="px-5">
           <div className="rounded-[16px] border border-[#E0E0E0] p-4 flex items-center gap-3">
@@ -106,7 +113,7 @@ export default async function NotesFraisPage({
             </div>
             <div className="flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[1px] text-[#8A8A8A]">
-                Total en attente de remboursement
+                En attente de remboursement
               </p>
               <p className="text-[18px] font-bold text-black leading-tight mt-0.5">
                 {fmt(allPendingTotal)} €
