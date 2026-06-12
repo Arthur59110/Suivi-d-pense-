@@ -73,3 +73,14 @@ export interface Budget {
   created_at: string
   updated_at: string
 }
+
+export interface ExpenseNote {
+  id: string
+  amount: number
+  description: string
+  who: 'arthur' | 'paloma'
+  date: string
+  reimbursed: boolean
+  reimbursed_date: string | null
+  created_at: string
+}

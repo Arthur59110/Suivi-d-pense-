@@ -10,9 +10,11 @@ import {
   revenueSchema,
   savingSchema,
   budgetSchema,
+  expenseNoteSchema,
   type ExpenseFormValues,
   type RevenueFormValues,
   type SavingFormValues,
+  type ExpenseNoteFormValues,
 } from './schema'
 
 function fmtAmount(n: number) {
@@ -356,6 +358,63 @@ export async function reportBalance(
   revalidatePath('/')
   revalidatePath('/revenus')
   redirect(`/?month=${sourceMonthStr}`)
+}
+
+export async function createExpenseNote(data: ExpenseNoteFormValues) {
+  const parsed = expenseNoteSchema.safeParse(data)
+  if (!parsed.success) throw new Error('Données invalides')
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase.from('expense_notes').insert(parsed.data)
+  if (error) throw new Error(friendlyError(error.message))
+  await notifyArthurIfPaloma({
+    title: 'Paloma a ajouté une note de frais',
+    body: `${parsed.data.description || 'Note de frais'} · ${fmtAmount(parsed.data.amount)} €`,
+    url: '/notes-frais',
+  })
+  revalidatePath('/')
+  revalidatePath('/notes-frais')
+  redirect('/notes-frais')
+}
+
+export async function updateExpenseNote(id: string, data: ExpenseNoteFormValues) {
+  const parsed = expenseNoteSchema.safeParse(data)
+  if (!parsed.success) throw new Error('Données invalides')
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase.from('expense_notes').update(parsed.data).eq('id', id)
+  if (error) throw new Error(friendlyError(error.message))
+  revalidatePath('/')
+  revalidatePath('/notes-frais')
+  redirect('/notes-frais')
+}
+
+export async function markExpenseNoteReimbursed(id: string, reimbursedDate: string) {
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase
+    .from('expense_notes')
+    .update({ reimbursed: true, reimbursed_date: reimbursedDate })
+    .eq('id', id)
+  if (error) throw new Error(friendlyError(error.message))
+  revalidatePath('/')
+  revalidatePath('/notes-frais')
+}
+
+export async function unmarkExpenseNoteReimbursed(id: string) {
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase
+    .from('expense_notes')
+    .update({ reimbursed: false, reimbursed_date: null })
+    .eq('id', id)
+  if (error) throw new Error(friendlyError(error.message))
+  revalidatePath('/')
+  revalidatePath('/notes-frais')
+}
+
+export async function deleteExpenseNote(id: string) {
+  const supabase = await getSupabaseServer()
+  const { error } = await supabase.from('expense_notes').delete().eq('id', id)
+  if (error) throw new Error(friendlyError(error.message))
+  revalidatePath('/')
+  revalidatePath('/notes-frais')
 }
 
 export async function setBudget(category: string, amount: number) {

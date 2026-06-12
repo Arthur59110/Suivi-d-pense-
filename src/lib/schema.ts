@@ -39,3 +39,12 @@ export const budgetSchema = z.object({
 })
 
 export type BudgetFormValues = z.infer<typeof budgetSchema>
+
+export const expenseNoteSchema = z.object({
+  amount: z.number().positive('Le montant doit être positif'),
+  description: z.string(),
+  who: z.enum(['arthur', 'paloma']).default('paloma'),
+  date: z.string().min(1, 'La date est requise'),
+})
+
+export type ExpenseNoteFormValues = z.infer<typeof expenseNoteSchema>
