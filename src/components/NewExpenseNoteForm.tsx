@@ -4,9 +4,9 @@ import { ChevronLeft } from 'lucide-react'
 import Link from 'next/link'
 import { createExpenseNote } from '@/lib/actions'
 
-export default function NewExpenseNoteForm() {
+export default function NewExpenseNoteForm({ defaultType = 'advance' }: { defaultType?: 'advance' | 'reimbursement' }) {
   const today = new Date().toISOString().split('T')[0]
-  const [type, setType] = useState<'advance' | 'reimbursement'>('advance')
+  const [type, setType] = useState<'advance' | 'reimbursement'>(defaultType)
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(today)
