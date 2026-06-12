@@ -78,24 +78,12 @@ export default async function AnalysePage({
   const budgetMap = new Map(budgets.map(b => [b.category, Number(b.amount)]))
 
   let reportedOut = 0
-  let notesNetImpact = 0
   if (view === 'mois') {
     const refYear = referenceDate.getFullYear()
     const refMonth = referenceDate.getMonth() + 1
     const label = `Report ${MONTHS_FULL[refMonth - 1]} ${refYear}`
-    const startMonth = format(startOfMonth(referenceDate), 'yyyy-MM-dd')
-    const endMonth = format(endOfMonth(referenceDate), 'yyyy-MM-dd')
-    const [outRes, notesByDateRes, notesAdvReimbRes] = await Promise.all([
-      supabase.from('revenues').select('amount').eq('description', label),
-      supabase.from('expense_notes').select('amount, type').gte('date', startMonth).lte('date', endMonth),
-      supabase.from('expense_notes').select('amount').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', startMonth).lte('reimbursed_date', endMonth),
-    ])
-    reportedOut = ((outRes.data ?? []) as { amount: number }[]).reduce((s, r) => s + r.amount, 0)
-    const notesByDate = (notesByDateRes.error ? [] : (notesByDateRes.data ?? [])) as { amount: number; type: string }[]
-    const advTotal = notesByDate.filter(n => n.type === 'advance').reduce((s, n) => s + n.amount, 0)
-    const directReimbTotal = notesByDate.filter(n => n.type === 'reimbursement').reduce((s, n) => s + n.amount, 0)
-    const advReimbTotal = (notesAdvReimbRes.error ? [] : (notesAdvReimbRes.data ?? [])).reduce((s: number, n: { amount: number }) => s + n.amount, 0)
-    notesNetImpact = advTotal - (advReimbTotal + directReimbTotal)
+    const { data: outData } = await supabase.from('revenues').select('amount').eq('description', label)
+    reportedOut = ((outData ?? []) as { amount: number }[]).reduce((s, r) => s + r.amount, 0)
   }
 
   return (
@@ -118,7 +106,6 @@ export default async function AnalysePage({
           savings={allSavings}
           budgets={budgetMap}
           reportedOut={reportedOut}
-          notesNetImpact={notesNetImpact}
         />
       ) : (
         <YearlyView
@@ -139,7 +126,6 @@ function MonthlyView({
   savings,
   budgets,
   reportedOut = 0,
-  notesNetImpact = 0,
 }: {
   referenceDate: Date
   expenses: Expense[]
@@ -147,7 +133,6 @@ function MonthlyView({
   savings: Saving[]
   budgets: Map<string, number>
   reportedOut?: number
-  notesNetImpact?: number
 }) {
   const isReport = (r: Revenue) => r.description?.startsWith('Report ') ?? false
   const monthExpenses = expenses.filter(e => isSameMonth(parseISO(e.date), referenceDate) && e.category !== 'epargne')
@@ -162,7 +147,7 @@ function MonthlyView({
   const totalRevenues = monthRevenues.reduce((s, r) => s + r.amount, 0)
   const reportIn = monthReportRows.reduce((s, r) => s + r.amount, 0)
   const totalSavings = monthSavings.reduce((s, sv) => s + sv.amount, 0)
-  const balance = totalRevenues + reportIn - totalExpenses - totalSavings - reportedOut - notesNetImpact
+  const balance = totalRevenues + reportIn - totalExpenses - totalSavings - reportedOut
   const prevTotal = prevExpensesArr.reduce((s, e) => s + e.amount, 0)
   const variation = prevTotal > 0 ? ((totalExpenses - prevTotal) / prevTotal) * 100 : 0
 

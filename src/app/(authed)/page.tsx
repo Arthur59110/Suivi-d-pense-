@@ -159,10 +159,12 @@ export default async function DashboardPage({
   const notesPendingTotal = notesAdvancedThisMonth.filter(n => !n.reimbursed).reduce((s, n) => s + n.amount, 0)
 
   const availableRevenues = totalRevenues + reportIn
+  // Les notes de frais ajustent le solde, mais ne sont ni une dépense ni un revenu :
+  // elles ne comptent pas dans "Revenus utilisés" ni dans aucune analyse
   const rawBalance = availableRevenues - totalExpenses - netMonthlySavings - reportedOut - notesNetImpact
   const balance = Math.abs(rawBalance) < 0.005 ? 0 : rawBalance
-  const totalUsed = totalExpenses + netMonthlySavings + reportedOut + notesNetImpact
-  const budgetPercent = availableRevenues > 0 ? Math.min((Math.max(totalUsed, 0) / availableRevenues) * 100, 100) : 0
+  const totalUsed = totalExpenses + netMonthlySavings + reportedOut
+  const budgetPercent = availableRevenues > 0 ? Math.min((totalUsed / availableRevenues) * 100, 100) : 0
   const isOverBudget = totalUsed > availableRevenues && availableRevenues > 0
 
   const arthurSavings = savings.filter(sv => sv.who === 'arthur' && sv.type === 'deposit').reduce((s, sv) => s + sv.amount, 0)
@@ -221,6 +223,11 @@ export default async function DashboardPage({
               ? `Dont +${fmt(reportIn)} € reporté du mois précédent`
               : balance >= 0 ? 'Restant après dépenses' : 'Déficit ce mois'}
         </p>
+        {Math.abs(notesNetImpact) > 0.01 && (
+          <p className="text-[13px] text-[#8A8A8A] mt-1">
+            Notes de frais : {notesNetImpact > 0 ? '-' : '+'}{fmt(Math.abs(notesNetImpact))} € (hors dépenses et revenus)
+          </p>
+        )}
       </div>
 
       {/* Revenus / Dépenses / Épargne */}
@@ -284,8 +291,8 @@ export default async function DashboardPage({
       <div className="animate-slide-up" style={{ animationDelay: '260ms' }}>
         <p className="text-[11px] font-semibold uppercase tracking-[1.5px] text-[#8A8A8A] mb-3">Par personne</p>
         <div className="grid grid-cols-2 gap-3">
-          <PersonCard name="Arthur" revenues={arthurRevenues} expenses={arthurExpenses} net={arthurNet} isActive />
-          <PersonCard name="Paloma" revenues={palomaRevenues} expenses={palomaExpenses} net={palomaNet} />
+          <PersonCard name="Arthur" revenues={arthurRevenues} expenses={arthurExpenses} net={arthurNet} notesImpact={notesImpactArthur} isActive />
+          <PersonCard name="Paloma" revenues={palomaRevenues} expenses={palomaExpenses} net={palomaNet} notesImpact={notesImpactPaloma} />
         </div>
       </div>
 
@@ -364,8 +371,8 @@ export default async function DashboardPage({
   )
 }
 
-function PersonCard({ name, revenues, expenses, net, isActive = false }: {
-  name: string; revenues: number; expenses: number; net: number; isActive?: boolean
+function PersonCard({ name, revenues, expenses, net, notesImpact = 0, isActive = false }: {
+  name: string; revenues: number; expenses: number; net: number; notesImpact?: number; isActive?: boolean
 }) {
   const f = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   return (
@@ -388,6 +395,12 @@ function PersonCard({ name, revenues, expenses, net, isActive = false }: {
           <span className="text-[#8A8A8A]">Dépenses</span>
           <span className="text-black font-medium">-{f(expenses)} €</span>
         </div>
+        {Math.abs(notesImpact) > 0.01 && (
+          <div className="flex justify-between">
+            <span className="text-[#8A8A8A]">Notes de frais</span>
+            <span className="text-black font-medium">{notesImpact > 0 ? '-' : '+'}{f(Math.abs(notesImpact))} €</span>
+          </div>
+        )}
       </div>
       <div className="h-px bg-[#E5E5E5] my-1" />
       <div className="flex justify-between items-baseline">
