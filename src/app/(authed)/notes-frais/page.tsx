@@ -41,7 +41,9 @@ export default async function NotesFraisPage({
   const advReimbTotal = advReimb.reduce((s, n) => s + n.amount, 0)
   const directReimbTotal = directReimbThisMonth.reduce((s, n) => s + n.amount, 0)
   const reimbursedTotal = advReimbTotal + directReimbTotal
-  const netImpact = advancedTotal - reimbursedTotal
+  // Plancher à 0 : un remboursement ne peut pas dépasser les avances. Les notes de
+  // frais ne créent jamais un gain positif sur le solde, elles le déduisent au plus.
+  const netImpact = Math.max(advancedTotal - reimbursedTotal, 0)
   const allPendingTotal = allPending.reduce((s, n) => s + n.amount, 0)
 
   const allDisplayed = notesByDate.slice().sort((a, b) => b.date.localeCompare(a.date))
@@ -102,12 +104,14 @@ export default async function NotesFraisPage({
             </p>
             <p
               className="text-[36px] font-bold mt-1 leading-none tracking-[-1px]"
-              style={{ color: netImpact > 0 ? '#C0392B' : '#166534' }}
+              style={{ color: netImpact > 0.005 ? '#C0392B' : '#8A8A8A' }}
             >
-              {netImpact >= 0 ? '-' : '+'}{fmt(Math.abs(netImpact))} €
+              {netImpact > 0.005 ? '-' : ''}{fmt(netImpact)} €
             </p>
             <p className="text-[12px] text-[#8A8A8A] mt-1">
-              Sur le solde de Paloma et le solde du mois
+              {netImpact > 0.005
+                ? 'Déduit du solde de Paloma et du solde du mois'
+                : 'Avances couvertes par les remboursements ce mois'}
             </p>
             <div className="flex gap-3 mt-4 pt-4 border-t border-[#E8E8E8]">
               {advancedTotal > 0 && (
