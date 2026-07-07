@@ -57,27 +57,28 @@ export default async function DashboardPage({
       .limit(1)
 
     if (!existing?.length) {
-      const [pExpRes, pRevRes, pSavRes, pNotesByDateRes, pNotesAdvReimbRes] = await Promise.all([
+      const [pExpRes, pRevRes, pSavRes, pNotesByDateRes] = await Promise.all([
         supabase.from('expenses').select('amount, category, who').gte('date', prevStart).lte('date', prevEnd),
         supabase.from('revenues').select('amount, who').gte('budget_month', prevStart).lte('budget_month', prevEnd),
         supabase.from('savings').select('amount, who, type').gte('date', prevStart).lte('date', prevEnd),
-        supabase.from('expense_notes').select('amount, who, type').gte('date', prevStart).lte('date', prevEnd),
-        supabase.from('expense_notes').select('amount, who').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', prevStart).lte('reimbursed_date', prevEnd),
+        supabase.from('expense_notes').select('amount, who, type, reimbursed').gte('date', prevStart).lte('date', prevEnd),
       ])
 
       type R = { amount: number; who: string }
       type E = { amount: number; category: string; who: string }
       type S = { amount: number; who: string; type: string }
-      type N = { amount: number; who: string; type?: string }
+      type N = { amount: number; who: string; type?: string; reimbursed?: boolean }
 
       const pExp = ((pExpRes.data ?? []) as E[]).filter(e => e.category !== 'epargne')
       const pRev = (pRevRes.data ?? []) as R[]
       const pSav = (pSavRes.data ?? []) as S[]
       const pNotesByDate = (pNotesByDateRes.error ? [] : (pNotesByDateRes.data ?? [])) as N[]
-      const pNotesAdvReimb = (pNotesAdvReimbRes.error ? [] : (pNotesAdvReimbRes.data ?? [])) as N[]
 
       const pNotesAdv = pNotesByDate.filter(n => n.type === 'advance')
       const pNotesDirectReimb = pNotesByDate.filter(n => n.type === 'reimbursement')
+      // Un remboursement d'avance est rattaché au mois de l'avance : il annule
+      // l'avance dans ce mois-là, quel que soit le mois où il a été reçu.
+      const pNotesAdvReimb = pNotesAdv.filter(n => n.reimbursed)
 
       const sumRev = (who: string) => pRev.filter(r => r.who === who).reduce((s, r) => s + r.amount, 0)
       const sumExp = (who: string) => pExp.filter(e => e.who === who).reduce((s, e) => s + e.amount, 0)
@@ -100,14 +101,12 @@ export default async function DashboardPage({
   }
 
   // Données du mois affiché (le report auto est déjà inséré si nécessaire)
-  const [expensesRes, revenuesRes, savingsRes, notesByDateRes, notesAdvReimbRes] = await Promise.all([
+  const [expensesRes, revenuesRes, savingsRes, notesByDateRes] = await Promise.all([
     supabase.from('expenses').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
     supabase.from('revenues').select('*').gte('budget_month', startDate).lte('budget_month', endDate).order('date', { ascending: false }),
     supabase.from('savings').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
     // Notes créées ce mois (avances type + remboursements directs type)
     supabase.from('expense_notes').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
-    // Avances remboursées ce mois (reimbursed_date in range)
-    supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', startDate).lte('reimbursed_date', endDate),
   ])
 
   const expenses: Expense[] = (expensesRes.data as Expense[] | null) ?? []
@@ -115,7 +114,6 @@ export default async function DashboardPage({
   const savings: Saving[]   = (savingsRes.data as Saving[]   | null) ?? []
   // Graceful degradation si la table n'existe pas encore
   const notesByDate: ExpenseNote[] = notesByDateRes.error ? [] : ((notesByDateRes.data as ExpenseNote[] | null) ?? [])
-  const notesAdvReimb: ExpenseNote[] = notesAdvReimbRes.error ? [] : ((notesAdvReimbRes.data as ExpenseNote[] | null) ?? [])
   const firstName = getUserName(user?.email ?? '')
 
   // Jambe sortante : "Report {ce mois}" inséré dans le mois suivant → déduit du solde ici
@@ -150,9 +148,11 @@ export default async function DashboardPage({
   const netMonthlySavings = totalSavingsDeposited - totalSavingsWithdrawn
 
   // Notes de frais : type-aware
-  // avances ce mois - (avances remboursées ce mois + remboursements directs ce mois)
+  // Un remboursement d'avance est rattaché au mois de l'avance (il l'annule là),
+  // et non au mois où il est reçu : avances ce mois - (avances remboursées + remboursements directs) ce mois
   const notesAdvancedThisMonth = notesByDate.filter(n => n.type === 'advance')
   const notesDirectReimbThisMonth = notesByDate.filter(n => n.type === 'reimbursement')
+  const notesAdvReimb = notesAdvancedThisMonth.filter(n => n.reimbursed)
   const notesAdvancedTotal = notesAdvancedThisMonth.reduce((s, n) => s + n.amount, 0)
   const notesReimbursedTotal = notesAdvReimb.reduce((s, n) => s + n.amount, 0) + notesDirectReimbThisMonth.reduce((s, n) => s + n.amount, 0)
   const notesNetImpact = notesAdvancedTotal - notesReimbursedTotal
