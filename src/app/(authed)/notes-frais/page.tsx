@@ -24,13 +24,16 @@ export default async function NotesFraisPage({
   const startDate = format(selectedDate, 'yyyy-MM-01')
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
 
-  const [notesByDateRes, allPendingRes] = await Promise.all([
+  const [notesByDateRes, allPendingRes, allDirectReimbRes] = await Promise.all([
     supabase.from('expense_notes').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
     supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', false).order('date', { ascending: false }),
+    // Tous les remboursements saisis (montant reçu, sans avance pointée) — viennent en déduction du total dû
+    supabase.from('expense_notes').select('amount').eq('type', 'reimbursement'),
   ])
 
   const notesByDate: ExpenseNote[] = notesByDateRes.error ? [] : ((notesByDateRes.data as ExpenseNote[] | null) ?? [])
   const allPending: ExpenseNote[] = allPendingRes.error ? [] : ((allPendingRes.data as ExpenseNote[] | null) ?? [])
+  const allDirectReimb = allDirectReimbRes.error ? [] : ((allDirectReimbRes.data as { amount: number }[] | null) ?? [])
 
   const advancedThisMonth = notesByDate.filter(n => n.type === 'advance')
   const directReimbThisMonth = notesByDate.filter(n => n.type === 'reimbursement')
@@ -44,7 +47,11 @@ export default async function NotesFraisPage({
   // Plancher à 0 : un remboursement ne peut pas dépasser les avances. Les notes de
   // frais ne créent jamais un gain positif sur le solde, elles le déduisent au plus.
   const netImpact = Math.max(advancedTotal - reimbursedTotal, 0)
-  const allPendingTotal = allPending.reduce((s, n) => s + n.amount, 0)
+  // Total encore dû à Paloma = avances non pointées - remboursements déjà reçus,
+  // plancher à 0 : un remboursement ne peut pas dépasser les avances.
+  const allAdvancesPending = allPending.reduce((s, n) => s + n.amount, 0)
+  const allDirectReimbTotal = allDirectReimb.reduce((s, n) => s + n.amount, 0)
+  const allPendingTotal = Math.max(allAdvancesPending - allDirectReimbTotal, 0)
 
   const allDisplayed = notesByDate.slice().sort((a, b) => b.date.localeCompare(a.date))
 
@@ -145,6 +152,11 @@ export default async function NotesFraisPage({
               <p className="text-[18px] font-bold text-black leading-tight mt-0.5">
                 {fmt(allPendingTotal)} €
               </p>
+              {allDirectReimbTotal > 0 && (
+                <p className="text-[11px] text-[#8A8A8A] mt-0.5">
+                  {fmt(allAdvancesPending)} € avancés − {fmt(allDirectReimbTotal)} € reçus
+                </p>
+              )}
             </div>
             <span className="text-[12px] font-semibold text-[#8A8A8A] flex-shrink-0">
               {allPending.length} note{allPending.length > 1 ? 's' : ''}
