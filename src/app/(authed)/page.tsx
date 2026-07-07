@@ -85,10 +85,12 @@ export default async function DashboardPage({
       const netSav = (who: string) =>
         pSav.filter(s => s.who === who && s.type === 'deposit').reduce((a, s) => a + s.amount, 0)
         - pSav.filter(s => s.who === who && s.type === 'withdrawal').reduce((a, s) => a + s.amount, 0)
-      const notesImpact = (who: string) =>
+      // Plancher à 0 : un remboursement ne peut pas dépasser les avances, donc les
+      // notes de frais ne créent jamais un gain positif reporté sur le mois suivant.
+      const notesImpact = (who: string) => Math.max(
         pNotesAdv.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
         - pNotesAdvReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
-        - pNotesDirectReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
+        - pNotesDirectReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0), 0)
 
       const aNet = Math.max(sumRev('arthur') - sumExp('arthur') - netSav('arthur') - notesImpact('arthur'), 0)
       const pNet = Math.max(sumRev('paloma') - sumExp('paloma') - netSav('paloma') - notesImpact('paloma'), 0)
@@ -155,8 +157,18 @@ export default async function DashboardPage({
   const notesAdvReimb = notesAdvancedThisMonth.filter(n => n.reimbursed)
   const notesAdvancedTotal = notesAdvancedThisMonth.reduce((s, n) => s + n.amount, 0)
   const notesReimbursedTotal = notesAdvReimb.reduce((s, n) => s + n.amount, 0) + notesDirectReimbThisMonth.reduce((s, n) => s + n.amount, 0)
-  const notesNetImpact = notesAdvancedTotal - notesReimbursedTotal
   const notesPendingTotal = notesAdvancedThisMonth.filter(n => !n.reimbursed).reduce((s, n) => s + n.amount, 0)
+  // Impact par personne, avec plancher à 0 : un remboursement ne peut pas dépasser
+  // les avances, donc les notes de frais ne créent jamais un gain positif sur le solde.
+  const rawNotesImpactByWho = (who: string) => {
+    const adv = notesAdvancedThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
+    const reimb = notesAdvReimb.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
+      + notesDirectReimbThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
+    return adv - reimb
+  }
+  const notesImpactArthur = Math.max(rawNotesImpactByWho('arthur'), 0)
+  const notesImpactPaloma = Math.max(rawNotesImpactByWho('paloma'), 0)
+  const notesNetImpact = notesImpactArthur + notesImpactPaloma
 
   const availableRevenues = totalRevenues + reportIn
   // Les notes de frais ajustent le solde, mais ne sont ni une dépense ni un revenu :
@@ -175,15 +187,6 @@ export default async function DashboardPage({
   const palomaExpenses = realExpenses.filter(e => e.who === 'paloma').reduce((s, e) => s + e.amount, 0)
   const arthurRevenues = realRevenues.filter(r => r.who === 'arthur').reduce((s, r) => s + r.amount, 0)
   const palomaRevenues = realRevenues.filter(r => r.who === 'paloma').reduce((s, r) => s + r.amount, 0)
-  const notesImpactByWho = (who: string) => {
-    const adv = notesAdvancedThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
-    const reimb = notesAdvReimb.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
-      + notesDirectReimbThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
-    return adv - reimb
-  }
-  const notesImpactArthur = notesImpactByWho('arthur')
-  const notesImpactPaloma = notesImpactByWho('paloma')
-
   const arthurNet = arthurRevenues + reportInArthur - arthurExpenses - arthurSavings - reportedOutArthur - notesImpactArthur
   const palomaNet = palomaRevenues + reportInPaloma - palomaExpenses - palomaSavings - reportedOutPaloma - notesImpactPaloma
 
