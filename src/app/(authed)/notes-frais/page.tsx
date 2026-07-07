@@ -24,18 +24,19 @@ export default async function NotesFraisPage({
   const startDate = format(selectedDate, 'yyyy-MM-01')
   const endDate = format(endOfMonth(selectedDate), 'yyyy-MM-dd')
 
-  const [notesByDateRes, advReimbRes, allPendingRes] = await Promise.all([
+  const [notesByDateRes, allPendingRes] = await Promise.all([
     supabase.from('expense_notes').select('*').gte('date', startDate).lte('date', endDate).order('date', { ascending: false }),
-    supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', true).gte('reimbursed_date', startDate).lte('reimbursed_date', endDate).order('reimbursed_date', { ascending: false }),
     supabase.from('expense_notes').select('*').eq('type', 'advance').eq('reimbursed', false).order('date', { ascending: false }),
   ])
 
   const notesByDate: ExpenseNote[] = notesByDateRes.error ? [] : ((notesByDateRes.data as ExpenseNote[] | null) ?? [])
-  const advReimb: ExpenseNote[] = advReimbRes.error ? [] : ((advReimbRes.data as ExpenseNote[] | null) ?? [])
   const allPending: ExpenseNote[] = allPendingRes.error ? [] : ((allPendingRes.data as ExpenseNote[] | null) ?? [])
 
   const advancedThisMonth = notesByDate.filter(n => n.type === 'advance')
   const directReimbThisMonth = notesByDate.filter(n => n.type === 'reimbursement')
+  // Un remboursement d'avance est rattaché au mois de l'avance : on compte les
+  // avances de ce mois qui sont remboursées, quel que soit le mois du remboursement.
+  const advReimb = advancedThisMonth.filter(n => n.reimbursed)
   const advancedTotal = advancedThisMonth.reduce((s, n) => s + n.amount, 0)
   const advReimbTotal = advReimb.reduce((s, n) => s + n.amount, 0)
   const directReimbTotal = directReimbThisMonth.reduce((s, n) => s + n.amount, 0)
@@ -43,13 +44,7 @@ export default async function NotesFraisPage({
   const netImpact = advancedTotal - reimbursedTotal
   const allPendingTotal = allPending.reduce((s, n) => s + n.amount, 0)
 
-  const idsInByDate = new Set(notesByDate.map(n => n.id))
-  const extraReimb = advReimb.filter(n => !idsInByDate.has(n.id))
-  const allDisplayed = [...notesByDate, ...extraReimb].sort((a, b) => {
-    const da = a.type === 'advance' && a.reimbursed && a.reimbursed_date ? a.reimbursed_date : a.date
-    const db = b.type === 'advance' && b.reimbursed && b.reimbursed_date ? b.reimbursed_date : b.date
-    return db.localeCompare(da)
-  })
+  const allDisplayed = notesByDate.slice().sort((a, b) => b.date.localeCompare(a.date))
 
   const monthQuery = monthParam ? `?month=${monthParam}` : ''
 
