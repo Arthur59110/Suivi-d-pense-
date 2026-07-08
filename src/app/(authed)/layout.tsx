@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import PullToRefresh from '@/components/PullToRefresh'
 import UpdatePrompt from '@/components/UpdatePrompt'
-import DailyMessage from '@/components/DailyMessage'
 import ServiceWorkerRegister from '@/components/ServiceWorkerRegister'
 import AppLock from '@/components/AppLock'
 
@@ -17,7 +16,6 @@ export default async function AuthedLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen bg-white safe-top">
       <ServiceWorkerRegister />
-      <DailyMessage />
       <UpdatePrompt />
       <AppLock>
         <PullToRefresh>
