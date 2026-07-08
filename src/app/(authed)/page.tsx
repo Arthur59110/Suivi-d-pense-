@@ -85,12 +85,11 @@ export default async function DashboardPage({
       const netSav = (who: string) =>
         pSav.filter(s => s.who === who && s.type === 'deposit').reduce((a, s) => a + s.amount, 0)
         - pSav.filter(s => s.who === who && s.type === 'withdrawal').reduce((a, s) => a + s.amount, 0)
-      // Plancher à 0 : un remboursement ne peut pas dépasser les avances, donc les
-      // notes de frais ne créent jamais un gain positif reporté sur le mois suivant.
-      const notesImpact = (who: string) => Math.max(
+      // Avances déduites, remboursements reçus crédités (peut être négatif = crédit).
+      const notesImpact = (who: string) =>
         pNotesAdv.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
         - pNotesAdvReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
-        - pNotesDirectReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0), 0)
+        - pNotesDirectReimb.filter(n => n.who === who).reduce((a, n) => a + n.amount, 0)
 
       const aNet = Math.max(sumRev('arthur') - sumExp('arthur') - netSav('arthur') - notesImpact('arthur'), 0)
       const pNet = Math.max(sumRev('paloma') - sumExp('paloma') - netSav('paloma') - notesImpact('paloma'), 0)
@@ -158,16 +157,16 @@ export default async function DashboardPage({
   const notesAdvancedTotal = notesAdvancedThisMonth.reduce((s, n) => s + n.amount, 0)
   const notesReimbursedTotal = notesAdvReimb.reduce((s, n) => s + n.amount, 0) + notesDirectReimbThisMonth.reduce((s, n) => s + n.amount, 0)
   const notesPendingTotal = notesAdvancedThisMonth.filter(n => !n.reimbursed).reduce((s, n) => s + n.amount, 0)
-  // Impact par personne, avec plancher à 0 : un remboursement ne peut pas dépasser
-  // les avances, donc les notes de frais ne créent jamais un gain positif sur le solde.
-  const rawNotesImpactByWho = (who: string) => {
+  // Impact par personne sur le solde : une avance le déduit (argent sorti), un
+  // remboursement reçu le crédite (Paloma a touché l'argent). Peut être négatif = crédit.
+  const notesImpactByWho = (who: string) => {
     const adv = notesAdvancedThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
     const reimb = notesAdvReimb.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
       + notesDirectReimbThisMonth.filter(n => n.who === who).reduce((s, n) => s + n.amount, 0)
     return adv - reimb
   }
-  const notesImpactArthur = Math.max(rawNotesImpactByWho('arthur'), 0)
-  const notesImpactPaloma = Math.max(rawNotesImpactByWho('paloma'), 0)
+  const notesImpactArthur = notesImpactByWho('arthur')
+  const notesImpactPaloma = notesImpactByWho('paloma')
   const notesNetImpact = notesImpactArthur + notesImpactPaloma
 
   const availableRevenues = totalRevenues + reportIn
